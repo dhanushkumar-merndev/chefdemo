@@ -1,0 +1,1443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChefFlow | Chef Partner Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    :root {
+      --ink: #1d2520;
+      --muted: #79827b;
+      --line: #e9ebe8;
+      --cream: #faf9f5;
+      --yellow: #f6c82c;
+      --yellow-deep: #e7b918;
+      --green: #1d9a65;
+      --pale-green: #e6f6ed;
+      --red: #dd6057;
+      --white: #fff;
+    }
+    * { box-sizing: border-box; }
+    html, body { overflow-x: hidden; }
+    body { margin: 0; color: var(--ink); background: #f3f4f0; font-family: "DM Sans", sans-serif; }
+    button { font: inherit; cursor: pointer; border: 0; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 248px 1fr; }
+    .sidebar { background: #fff; border-right: 1px solid var(--line); padding: 28px 16px; display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; z-index: 20; }
+    .brand { display: flex; align-items: center; gap: 10px; padding: 0 10px 29px; font-size: 20px; font-weight: 700; letter-spacing: -.7px; }
+    .brand-mark { width: 34px; height: 34px; background: var(--yellow); border-radius: 11px 11px 11px 3px; display: grid; place-items: center; box-shadow: inset -4px -4px 0 rgba(190,142,0,.14); } .brand-mark svg { width: 19px; height: 19px; stroke-width: 2; }
+    .brand small { display: block; margin-top: 1px; color: var(--muted); font-size: 10px; letter-spacing: 1.4px; font-weight: 700; }
+    .nav-label { color: #a0a8a1; font-size: 10px; font-weight: 700; letter-spacing: 1.25px; margin: 9px 12px 8px; }
+    .nav-item { width: 100%; display: flex; align-items: center; gap: 13px; color: #657069; background: transparent; border-radius: 10px; padding: 12px; margin: 2px 0; font-weight: 600; text-align: left; transition: .2s; }
+    .nav-item:hover, .nav-item.active { color: var(--ink); background: #fff7d7; }
+    .nav-item.active { box-shadow: inset 3px 0 var(--yellow); }
+    .nav-icon { width: 20px; display: grid; place-items: center; } .nav-icon svg { width: 17px; height: 17px; stroke-width: 1.8; }
+    .nav-badge { margin-left: auto; min-width: 19px; padding: 2px 5px; border-radius: 20px; color: #fff; background: var(--red); text-align: center; font-size: 10px; }
+    .sidebar-foot { margin-top: auto; padding: 15px 11px; background: #f8f8f6; border-radius: 14px; }
+    .foot-profile { display: flex; gap: 10px; align-items: center; font-size: 12px; font-weight: 700; }
+    .avatar { width: 35px; height: 35px; border-radius: 50%; color: #fff; background: linear-gradient(135deg,#273d36,#749079); display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+    .foot-profile span { color: var(--muted); display: block; margin-top: 3px; font-size: 10px; font-weight: 500; }
+    .main { max-width: 1440px; width: 100%; margin: auto; padding: 26px 40px 48px; position: relative; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; position: relative; z-index: 54; }
+    .crumb { color: var(--muted); font-size: 13px; }
+    .crumb b { color: var(--ink); }
+    .top-actions { display: flex; align-items: center; gap: 14px; position: relative; }
+    
+    /* Bell Button & Notifications */
+    .notif-wrapper { position: relative; }
+    .bell { width: 39px; height: 39px; display: grid; place-items: center; background: #ffffff; border: 1px solid var(--line); border-radius: 50%; position: relative; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+    .bell svg { width: 17px; height: 17px; stroke-width: 1.8; color: #435047; transition: transform 0.2s ease, color 0.2s ease; }
+    .bell:hover { background: #fff8df; border-color: #f6c82c; color: #202a24; transform: translateY(-1px); }
+    .bell.active { background: #fef3ca; border-color: #e5b71c; box-shadow: 0 0 0 3px rgba(246, 200, 44, 0.22); }
+    .bell.active svg { color: #856404; transform: rotate(10deg); }
+    .bell:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+
+    .bell-badge {
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 9px;
+      background: var(--red);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #ffffff;
+      box-shadow: 0 2px 6px rgba(221, 96, 87, 0.35);
+      animation: badgePulse 2.4s infinite;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    }
+    .bell-badge.hidden { display: none; }
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.12); }
+    }
+
+    /* Notification Dropdown Container */
+    .notif-dropdown {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      width: 400px;
+      max-width: calc(100vw - 28px);
+      background: #ffffff;
+      border: 1px solid rgba(216, 222, 218, 0.95);
+      border-radius: 18px;
+      box-shadow: 0 22px 55px rgba(20, 32, 25, 0.16), 0 4px 16px rgba(0, 0, 0, 0.05);
+      z-index: 60;
+      overflow: hidden;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-8px) scale(0.97);
+      transform-origin: top right;
+      transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.22s;
+    }
+    .notif-dropdown.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+    }
+
+    /* Dropdown Header */
+    .notif-header {
+      padding: 16px 18px 12px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+    .notif-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .notif-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .notif-title-group h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.3px;
+    }
+    .notif-count-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: #fff4c8;
+      color: #8f6e00;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .notif-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notif-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 5px 9px;
+      border-radius: 6px;
+      background: #f4f6f3;
+      color: #556259;
+      font-size: 11px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+    .notif-action-btn:hover {
+      background: #e7eae5;
+      color: var(--ink);
+    }
+    .notif-action-btn svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    /* Filter Tabs */
+    .notif-tabs {
+      display: flex;
+      gap: 6px;
+      padding-top: 2px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .notif-tabs::-webkit-scrollbar {
+      display: none;
+      width: 0;
+      height: 0;
+    }
+    .notif-tab {
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .notif-tab:hover {
+      color: var(--ink);
+      background: #f6f7f5;
+    }
+    .notif-tab.active {
+      background: #24392e;
+      color: #ffffff;
+    }
+    .notif-tab .tab-badge {
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.08);
+      color: inherit;
+    }
+    .notif-tab.active .tab-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #ffffff;
+    }
+
+    /* Notification Items List */
+    .notif-list {
+      max-height: 375px;
+      overflow-y: auto;
+      padding: 4px 0;
+      scrollbar-width: thin;
+      scrollbar-color: #dbe0dc transparent;
+    }
+    .notif-list::-webkit-scrollbar {
+      width: 5px;
+    }
+    .notif-list::-webkit-scrollbar-thumb {
+      background: #dbe0dc;
+      border-radius: 4px;
+    }
+
+    .notif-item {
+      position: relative;
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 12px;
+      padding: 13px 18px;
+      border-bottom: 1px solid #f4f5f2;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.2s ease, transform 0.2s ease;
+      background: #ffffff;
+    }
+    .notif-item:last-child {
+      border-bottom: none;
+    }
+    .notif-item:hover {
+      background: #fafaf7;
+    }
+    .notif-item.unread {
+      background: #faf9f2;
+    }
+    .notif-item.unread:hover {
+      background: #f5f3e7;
+    }
+    .notif-item.removing {
+      opacity: 0;
+      transform: translateX(30px);
+      pointer-events: none;
+    }
+
+    .notif-icon-wrap {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .notif-icon-wrap svg {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2;
+    }
+    .notif-icon-booking { background: #fff5d1; color: #9c7304; }
+    .notif-icon-earnings { background: #e5f7ed; color: #168955; }
+    .notif-icon-ratings { background: #fff1d6; color: #d48806; }
+    .notif-icon-alert { background: #eaf1fb; color: #1a73e8; }
+
+    .notif-content {
+      min-width: 0;
+    }
+    .notif-row-top {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .notif-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .notif-unread-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--red);
+      display: inline-block;
+      flex-shrink: 0;
+    }
+    .notif-time {
+      font-size: 10px;
+      color: #8c968f;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .notif-desc {
+      margin: 2px 0 4px;
+      font-size: 11px;
+      color: #556259;
+      line-height: 1.4;
+    }
+    .notif-meta {
+      font-size: 10px;
+      color: #7b887f;
+      font-weight: 600;
+      background: #f1f3ef;
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 3px;
+    }
+    .notif-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .notif-btn-sm {
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+    .notif-btn-accept {
+      background: var(--yellow);
+      color: #302700;
+    }
+    .notif-btn-accept:hover {
+      background: var(--yellow-deep);
+    }
+    .notif-btn-view {
+      background: #eef1ed;
+      color: #4b584f;
+    }
+    .notif-btn-view:hover {
+      background: #e1e5df;
+      color: var(--ink);
+    }
+
+    .notif-item-tools {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      opacity: 0.55;
+      transition: opacity 0.15s ease;
+    }
+    .notif-item:hover .notif-item-tools {
+      opacity: 1;
+    }
+    .notif-dismiss-btn {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: transparent;
+      color: #8e9a91;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+      transition: all 0.15s ease;
+    }
+    .notif-dismiss-btn:hover {
+      background: #fee7e6;
+      color: #d13b34;
+    }
+    .notif-dismiss-btn svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Empty state */
+    .notif-empty {
+      padding: 34px 20px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .notif-empty-icon {
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 10px;
+      background: #f4f6f3;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: #8b978e;
+    }
+    .notif-empty-icon svg {
+      width: 20px;
+      height: 20px;
+    }
+    .notif-empty h4 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .notif-empty p {
+      margin: 0;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Footer */
+    .notif-footer {
+      padding: 10px 18px;
+      background: #fbfbf9;
+      border-top: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #88948b;
+    }
+    .notif-refresh-btn {
+      background: none;
+      color: #917100;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .notif-refresh-btn:hover {
+      text-decoration: underline;
+    }
+
+    /* Backdrop */
+    .notif-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 52;
+      background: rgba(0, 0, 0, 0.05);
+      display: none;
+    }
+    .notif-backdrop.show {
+      display: block;
+    }
+
+    /* Clickable pending action card */
+    .metric.clickable-action {
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .metric.clickable-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+      border-color: #eedb8a;
+    }
+
+    .online-toggle { display: flex; gap: 9px; align-items: center; background: white; border: 1px solid var(--line); padding: 6px 12px 6px 7px; border-radius: 22px; color: #37715a; font-size: 12px; font-weight: 700; }
+    .switch { width: 28px; height: 17px; background: var(--green); padding: 2px; border-radius: 20px; transition: .2s; }
+    .switch i { display: block; width: 13px; height: 13px; background: #fff; border-radius: 50%; margin-left: 11px; transition: .2s; }
+    .offline .switch { background: #c8ccc8; } .offline .switch i { margin-left: 0; } .offline { color: #7c827d; }
+    .greeting { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 26px; }
+    h1 { margin: 0 0 7px; font-family: "Playfair Display", serif; font-size: 34px; line-height: 1; letter-spacing: -1.3px; }
+    .greeting p { margin: 0; font-size: 14px; color: var(--muted); }
+    .date-chip { padding: 9px 13px; background: #fff; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; font-weight: 600; color: #59635d; }
+    .verified { display: inline-flex; gap: 5px; align-items: center; margin-left: 8px; vertical-align: middle; padding: 5px 8px; background: var(--pale-green); color: #238053; border-radius: 6px; font-family: "DM Sans"; font-size: 10px; letter-spacing: 0; font-weight: 700; }
+    .overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px; }
+    .metric { background: #fff; min-height: 121px; padding: 17px; border: 1px solid var(--line); border-radius: 15px; position: relative; overflow: hidden; }
+    .metric:after { content: ""; position: absolute; width: 59px; height: 59px; border-radius: 50%; right: -18px; bottom: -22px; background: #f7f7f3; }
+    .metric-icon { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 9px; background: #fff6ce; } .metric-icon svg { width: 16px; height: 16px; stroke-width: 1.9; }
+    .metric:nth-child(2) .metric-icon { background: #e8f6ee; } .metric:nth-child(3) .metric-icon { background: #fff1d6; } .metric:nth-child(4) .metric-icon { background: #fff0ee; }
+    .metric-label { margin-top: 11px; color: var(--muted); font-size: 11px; font-weight: 600; }
+    .metric-value { margin-top: 4px; color: #202a24; font-size: 22px; line-height: 1; font-weight: 700; letter-spacing: -.6px; }
+    .metric-note { margin-left: 4px; color: #1f9b63; font-size: 10px; font-weight: 700; } .metric-note.neutral { color: #f1a719; }
+    .content-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .8fr); gap: 22px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 16px; }
+    .card-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 20px 15px; }
+    .card-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+    .card-sub { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .text-button { display: inline-flex; align-items: center; gap: 4px; background: none; color: #967500; font-size: 11px; font-weight: 700; transition: all 0.15s ease; }
+    .text-button:hover { color: #6e5400; }
+    .text-button svg { width: 14px; height: 14px; stroke-width: 2.2; flex-shrink: 0; }
+    .booking-list { padding: 0 20px 16px; }
+    .booking { display: grid; grid-template-columns: 55px 1fr auto; gap: 13px; align-items: center; padding: 13px 0; border-top: 1px solid #f0f1ef; }
+    .booking-date { color: #677169; text-align: center; font-size: 10px; font-weight: 600; line-height: 1.15; }
+    .booking-date b { color: var(--ink); display: block; margin: 3px 0; font-size: 20px; line-height: 1; }
+    .booking-main { min-width: 0; }
+    .booking-main h3 { margin: 0 0 3px; font-size: 13px; }
+    .booking-main p { margin: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+    .booking-tags { display: flex; gap: 5px; margin-top: 7px; }
+    .tag { padding: 3px 6px; color: #757d76; background: #f5f6f4; border-radius: 4px; font-size: 9px; font-weight: 600; }
+    .booking-side { text-align: right; font-size: 11px; color: #5e675f; white-space: nowrap; } .booking-side b { display: block; color: #1f2b24; margin-bottom: 3px; font-size: 13px; }
+    .upcoming-footer { border-top: 1px solid #f0f1ef; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 11px; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #e7b918; display: inline-block; margin-right: 5px; }
+    .booking-panel { background: #263b32; color: white; overflow: hidden; position: relative; }
+    .booking-panel:before { content: ""; position: absolute; width: 175px; height: 175px; border: 28px solid rgba(255,255,255,.05); border-radius: 50%; right: -90px; top: -80px; }
+    .booking-panel .card-head { position: relative; } .booking-panel .card-title { color: white; } .booking-panel .card-sub { color: #c6d2cc; }
+    .new-booking { position: relative; margin: 0 18px 18px; padding: 17px; color: var(--ink); background: #fff; border-radius: 12px; }
+    .new-booking .status { display: inline-block; padding: 4px 7px; background: #fff4c8; color: #907200; border-radius: 4px; font-size: 9px; font-weight: 700; }
+    .new-booking h3 { margin: 12px 0 3px; font-size: 15px; } .new-booking p { color: var(--muted); margin: 0; font-size: 11px; }
+    .booking-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; padding: 13px 0; margin: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .booking-meta div { color: #849087; font-size: 10px; } .booking-meta b { display: block; margin-top: 3px; color: #233129; font-size: 11px; }
+    .earn { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--muted); } .earn strong { color: #188755; font-size: 16px; }
+    .action-row { display: flex; gap: 8px; margin-top: 14px; } .action-row button { flex: 1; padding: 10px; border-radius: 7px; font-size: 11px; font-weight: 700; }
+    .accept { color: #1b2821; background: var(--yellow); border-radius: 10px !important; } .accept:hover { background: var(--yellow-deep); } .reject { color: #6d756e; background: #f2f4f1; }
+    .performance { display: grid; grid-template-columns: 115px 1fr; align-items: center; gap: 10px; padding: 18px 20px 22px; }
+    .rating-circle { width: 102px; height: 102px; display: grid; place-content: center; text-align: center; border: 8px solid var(--yellow); border-left-color: #f1f1ec; border-radius: 50%; } .rating-circle b { font-size: 25px; letter-spacing: -1px; } .rating-circle span { color: var(--muted); font-size: 10px; }
+    .score { display: grid; grid-template-columns: 1fr auto; gap: 4px; align-items: center; margin: 6px 0; color: #68726a; font-size: 10px; } .bar { grid-column: 1 / span 2; height: 5px; overflow: hidden; background: #eff1ee; border-radius: 6px; } .bar i { display: block; height: 100%; background: #53b883; border-radius: 6px; }
+    .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
+    .wallet { padding: 18px 20px; background: linear-gradient(115deg,#f9ce32,#f3b61b); border: 0; } .wallet .card-title { font-size: 14px; } .wallet-balance { margin-top: 11px; font-size: 26px; font-weight: 700; letter-spacing: -1px; } .wallet p { margin: 4px 0 12px; font-size: 11px; color: #715600; }
+    .wallet button { display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; background: white; color: #5e4b08; border-radius: 6px; font-size: 10px; font-weight: 700; transition: all 0.15s ease; }
+    .wallet button:hover { background: #fffbe6; }
+    .wallet button svg { width: 13px; height: 13px; stroke-width: 2.2; flex-shrink: 0; }
+    .tip { display: flex; padding: 15px 16px; gap: 11px; align-items: flex-start; } .tip-icon { width: 31px; height: 31px; flex: 0 0 31px; display: grid; place-items: center; background: #fff3d2; border-radius: 9px; } .tip-icon svg { width: 16px; height: 16px; stroke-width: 1.9; } .tip b { display: block; font-size: 12px; } .tip p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .mobile-nav { display: none; }
+    .main { overflow-x: clip; }
+    .page { display: none; }
+    .page.active { display: block; }
+    .page.enter-from-right > * { animation: contentFromRight .2s cubic-bezier(.2,.8,.2,1) both; }
+    .page.enter-from-left > * { animation: contentFromLeft .2s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes contentFromRight { from { opacity: .88; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes contentFromLeft { from { opacity: .88; transform: translateX(-14px); } to { opacity: 1; transform: translateX(0); } }
+    @media (prefers-reduced-motion: reduce) { .page.enter-from-right > *, .page.enter-from-left > * { animation: none; } }
+    .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 15px; margin-bottom: 24px; } .page-heading h1 { font-size: 33px; } .page-heading p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+    .filter-tabs {
+      display: flex;
+      gap: 7px;
+      margin-bottom: 18px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE / Edge */
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
+    }
+    .filter-tabs::-webkit-scrollbar {
+      display: none; /* Chrome, Safari, Opera */
+      width: 0;
+      height: 0;
+    }
+    .filter-tabs button {
+      padding: 8px 13px;
+      color: #778078;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+    }
+    .filter-tabs button.active {
+      color: #614d00;
+      background: #fff4c9;
+      border-color: #f5df80;
+    }
+    .calendar-card { padding: 19px; }
+    .calendar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .calendar-top h2 { margin: 0; font-size: 17px; }
+    .calendar-arrow { width: 31px; height: 31px; border-radius: 7px; background: #f6f7f4; color: #526057; display: grid; place-items: center; transition: all 0.15s ease; }
+    .calendar-arrow:hover { background: #e8ece7; color: var(--ink); }
+    .calendar-arrow svg { width: 16px; height: 16px; stroke-width: 2.2; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
+    .calendar-grid .weekday { padding: 4px 0; color: #8b938d; font-size: 10px; font-weight: 700; text-align: center; }
+    .day { position: relative; min-height: 68px; padding: 8px; border: 1px solid #eef0ed; border-radius: 8px; background: #fff; color: #445047; text-align: left; font-size: 12px; }
+    .day.muted { color: #b6bcb7; background: #fafaf9; }
+    .day.booked { color: #2a2510; background: #fff6cf; border-color: #f3d770; font-weight: 700; }
+    .day.booked:after { content: ""; position: absolute; width: 5px; height: 5px; border-radius: 50%; right: 8px; bottom: 8px; background: #e4ae04; }
+    .day.today { outline: 2px solid #2a4236; outline-offset: -2px; }
+    .calendar-legend { display: flex; gap: 16px; margin-top: 16px; color: #707a72; font-size: 10px; }
+    .calendar-legend i { display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: #f3c328; }
+    .calendar-legend i.today-dot { background: #2a4236; }
+    .booking-wide { display: grid; grid-template-columns: 74px 1fr 160px auto; gap: 17px; align-items: center; padding: 17px 20px; margin-bottom: 11px; }
+    .booking-wide .booking-date { padding-right: 16px; border-right: 1px solid var(--line); }
+    .booking-wide .booking-date b { font-size: 25px; }
+    .booking-wide .booking-main h3 { font-size: 14px; }
+    .booking-wide .location { color: var(--muted); font-size: 11px; }
+    .service-state { font-size: 11px; font-weight: 700; color: #ad8400; }
+    .service-state.done { color: #168955; }
+    .outline-btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; padding: 9px 12px; border: 1px solid var(--line); color: #56645a; background: #fff; border-radius: 7px; font-size: 10px; font-weight: 700; transition: all 0.15s ease; }
+    .outline-btn:hover { background: #f7f8f6; color: var(--ink); }
+    .outline-btn svg { width: 13px; height: 13px; stroke-width: 2.2; }
+    .booking-wide[hidden] { display: none !important; }
+    .earnings-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 21px; }
+    .earning-card { padding: 17px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+    .earning-card small { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .45px; }
+    .earning-card b { display: block; margin-top: 8px; font-size: 22px; letter-spacing: -.7px; }
+    .earning-card.highlight { background: #263b32; border-color: #263b32; color: #fff; }
+    .earning-card.highlight small { color: #cbd7d1; }
+    .table-card { overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 13px 20px; color: #89918b; background: #fafaf8; font-size: 10px; text-align: left; letter-spacing: .5px; }
+    td { padding: 15px 20px; border-top: 1px solid var(--line); font-size: 12px; }
+    td small { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .success { color: #188755; font-weight: 700; }
+    .paid { color: #227c55; background: #e9f6ee; padding: 4px 7px; border-radius: 4px; font-size: 9px; font-weight: 700; }
+    .review-list { padding: 0 20px 13px; }
+    .review { padding: 14px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; }
+    .review .avatar { width: 32px; height: 32px; font-size: 11px; background: #c56e4b; }
+    .review b { font-size: 12px; }
+    .review p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+    .stars { color: #e6ae11; font-size: 11px; white-space: nowrap; }
+    .profile-grid { display: grid; grid-template-columns: .8fr 1.2fr; gap: 22px; }
+    .profile-summary { padding: 22px; text-align: center; }
+    .profile-summary .avatar { width: 72px; height: 72px; margin: auto; font-size: 21px; }
+    .profile-summary h2 { margin: 11px 0 4px; font-size: 17px; }
+    .profile-summary p { margin: 0; color: var(--muted); font-size: 11px; }
+    .verified-block { margin-top: 18px; padding: 11px; text-align: left; border-radius: 8px; background: var(--pale-green); color: #1b8051; font-size: 11px; font-weight: 700; }
+    .form-card { padding: 21px; }
+    .form-card h2 { margin: 0 0 17px; font-size: 16px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+    .field label { display: block; margin-bottom: 5px; color: #737d75; font-size: 10px; font-weight: 700; }
+    .field input, .field select { width: 100%; padding: 10px 11px; color: var(--ink); background: #fff; border: 1px solid #dfe3de; border-radius: 7px; font: inherit; font-size: 12px; }
+    .full { grid-column: 1 / -1; }
+    .form-divider { height: 1px; background: var(--line); margin: 20px 0; }
+    .disabled-field { background: #f4f5f2 !important; color: #8b938d !important; }
+    .save-row { display: flex; justify-content: flex-end; margin-top: 17px; }
+    .support-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
+    .support-option { padding: 19px; text-align: left; border: 1px solid var(--line); background: #fff; border-radius: 14px; }
+    .support-option span { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 9px; background: #fff3cc; }
+    .support-option span svg { width: 17px; height: 17px; stroke-width: 1.8; }
+    .support-option b { display: block; margin-top: 12px; font-size: 13px; }
+    .support-option small { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .faq { padding: 0 20px 8px; }
+    .faq button { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 14px 0; color: #354139; background: none; border-top: 1px solid var(--line); font-size: 12px; text-align: left; transition: color 0.15s ease; }
+    .faq button:hover { color: var(--ink); }
+    .faq button svg { width: 15px; height: 15px; stroke-width: 2.2; color: #8a938c; flex-shrink: 0; }
+    .back-login { display: inline-flex; align-items: center; gap: 6px; margin-top: 16px; color: #8d7001; background: none; font-size: 11px; font-weight: 700; transition: all 0.15s ease; }
+    .back-login:hover { color: #6b5500; transform: translateX(-2px); }
+    .back-login svg { width: 14px; height: 14px; stroke-width: 2.2; flex-shrink: 0; }
+    .login-screen { position: fixed; z-index: 70; inset: 0; display: grid; grid-template-columns: 1fr 1fr; background: #fff; }.login-art { position: relative; overflow: hidden; padding: 56px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; background: #243b31; }.login-art:before, .login-art:after { content: ""; position: absolute; border-radius: 50%; border: 50px solid rgba(255,255,255,.055); }.login-art:before { width: 390px; height: 390px; right: -150px; top: -120px; }.login-art:after { width: 290px; height: 290px; left: -160px; bottom: -150px; }.login-art .brand { position: relative; padding: 0; color: #fff; }.login-copy { position: relative; max-width: 460px; }.login-copy h1 { font-size: 46px; line-height: 1.06; }.login-copy p { max-width: 340px; color: #c8d7ce; line-height: 1.55; font-size: 14px; }.login-steps { position: relative; display: flex; gap: 15px; color: #c4d2ca; font-size: 11px; }.login-steps b { display: block; color: #f5cc33; margin-bottom: 4px; }.login-form-area { display: grid; place-items: center; padding: 30px; background: #fbfbf8; }.login-box { width: min(390px,100%); }.login-box .brand { display: none; }.login-box h2 { margin: 0; font-family: "Playfair Display"; font-size: 31px; }.login-box>p { margin: 9px 0 26px; color: var(--muted); font-size: 13px; line-height: 1.5; }.phone-field { display: flex; align-items: center; border: 1px solid #dce0db; border-radius: 9px; background: #fff; padding: 0 12px; }.phone-field span { padding-right: 11px; border-right: 1px solid var(--line); font-size: 12px; font-weight: 700; }.phone-field input { flex: 1; border: 0; outline: 0; padding: 13px 11px; font: inherit; font-size: 13px; }.primary-btn { width: 100%; padding: 13px; color: #302700; background: var(--yellow); border-radius: 8px; font-size: 12px; font-weight: 700; }.primary-btn:hover { background: var(--yellow-deep); }.login-note { margin-top: 15px; text-align: center; color: #8b938d; font-size: 10px; }.otp-row { display: flex; gap: 8px; margin-bottom: 15px; }.otp-row input { width: 100%; height: 48px; text-align: center; border: 1px solid #dce0db; border-radius: 8px; font: inherit; font-size: 19px; outline-color: var(--yellow); }.back-login { display: inline-block; margin-top: 16px; color: #8d7001; background: none; font-size: 11px; font-weight: 700; }.login-step { display: none; }.login-step.active { display: block; }
+    .page-heading .accept { flex: 0 0 auto; white-space: nowrap; padding: 11px 16px; }
+    .modal-wrap { position: fixed; display: none; z-index: 65; inset: 0; place-items: center; padding: 20px; background: rgba(24,33,28,.42); backdrop-filter: blur(4px); }
+    .modal-wrap.show { display: grid; } .modal { width: min(430px,100%); padding: 24px; background: #fff; border-radius: 18px; box-shadow: 0 25px 70px rgba(0,0,0,.2); } .modal-top { display: flex; justify-content: space-between; align-items: start; } .modal h2 { margin: 0; font-family: "Playfair Display"; font-size: 25px; } .close { width: 29px; height: 29px; background: #f3f4f1; border-radius: 50%; color: #607067; }
+    .modal > p { margin: 7px 0 17px; color: var(--muted); font-size: 12px; } .detail-list { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); } .detail-list div { display: flex; justify-content: space-between; padding: 11px 0; color: var(--muted); font-size: 12px; } .detail-list b { color: var(--ink); }
+    
+    /* Modern Bottom Toast */
+    .toast {
+      visibility: hidden;
+      position: fixed;
+      z-index: 99;
+      left: 50%;
+      bottom: 28px;
+      transform: translate(-50%, 20px);
+      min-width: min(340px, calc(100vw - 32px));
+      padding: 13px 20px;
+      background: #1f2e26;
+      color: #ffffff;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.28);
+      opacity: 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .toast.error { background: #b6403b; }
+    .toast.show { visibility: visible; transform: translate(-50%, 0); opacity: 1; }
+
+    @media(max-width: 1000px){
+      .main { padding: 24px 24px 42px; }
+      .overview, .earnings-grid { grid-template-columns: repeat(2, 1fr); }
+      .bottom-row { grid-template-columns: 1fr; }
+      .content-grid { grid-template-columns: 1fr; }
+      .booking-panel { min-height: 0; }
+      .performance { padding-top: 0; }
+      .sidebar { width: 210px; }
+      .app { grid-template-columns: 210px 1fr; }
+      .login-art { padding: 35px; }
+      .login-copy h1 { font-size: 38px; }
+      .profile-grid { grid-template-columns: 1fr; }
+      .support-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media(max-width: 670px){
+      body { background: #fafaf8; }
+      .app { display: block; }
+      .sidebar { display: none; }
+      .main { padding: 18px 16px 86px; }
+      .topbar { margin-bottom: 22px; }
+      .crumb { font-size: 11px; }
+      .online-toggle { font-size: 10px; }
+      .greeting { margin-bottom: 19px; }
+      .greeting h1, .page-heading h1 { font-size: 28px; }
+      .greeting p, .page-heading p { font-size: 12px; }
+      .date-chip { display: none; }
+      .overview { gap: 10px; margin-bottom: 19px; }
+      .metric { min-height: 104px; padding: 14px; border-radius: 13px; }
+      .metric-label { font-size: 10px; }
+      .metric-value { font-size: 19px; }
+      .content-grid { gap: 15px; }
+      .card-head { padding: 16px 16px 12px; }
+      .booking-list { padding: 0 16px 12px; }
+      .booking { grid-template-columns: 42px 1fr auto; gap: 8px; }
+      .booking-date b { font-size: 17px; }
+      .booking-main h3 { font-size: 12px; }
+      .booking-side b { font-size: 12px; }
+      .booking-side { font-size: 10px; }
+      .booking-panel { border-radius: 15px; }
+      .new-booking { margin: 0 14px 14px; }
+      .bottom-row { gap: 15px; margin-top: 15px; }
+      .mobile-nav { display: flex; position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; height: 67px; justify-content: space-around; padding: 8px 5px calc(8px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid var(--line); transform: translateZ(0); backface-visibility: hidden; isolation: isolate; }
+      .mobile-nav button { min-width: 56px; display: grid; place-items: center; gap: 4px; background: none; color: #8a938c; font-size: 9px; transition: color .14s ease; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+      .mobile-nav button:active { opacity: 1; transform: none; }
+      .mobile-nav button svg { width: 17px; height: 17px; stroke-width: 1.65; }
+      .mobile-nav button.active { color: #997900; font-weight: 700; }
+      .performance { grid-template-columns: 94px 1fr; padding: 10px 16px 18px; }
+      .rating-circle { width: 82px; height: 82px; border-width: 7px; }
+      .rating-circle b { font-size: 21px; }
+      .booking-wide { grid-template-columns: 42px 1fr auto; gap: 8px; padding: 13px; }
+      .booking-wide .booking-date { padding-right: 7px; }
+      .booking-wide .booking-side, .booking-wide .location { display: none; }
+      .booking-wide #serviceButton { grid-column: 2 / -1; width: 100%; margin-top: 2px; }
+      .earnings-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+      .earning-card { padding: 14px; }
+      .earning-card b { font-size: 18px; }
+      th, td { padding: 12px 10px; }
+      .table-card { overflow: auto; }
+      .profile-summary { padding: 17px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .full { grid-column: auto; }
+      .support-grid { grid-template-columns: 1fr; gap: 10px; }
+      .support-option { padding: 14px; display: flex; align-items: center; gap: 11px; }
+      .support-option b { margin: 0; }
+      .support-option small { margin-top: 3px; }
+      .login-screen { display: block; overflow: auto; }
+      .login-art { min-height: 230px; padding: 25px; }
+      .login-art .brand { padding: 0; }
+      .login-copy h1 { margin-top: 25px; font-size: 31px; }
+      .login-copy p, .login-steps { display: none; }
+      .login-form-area { min-height: calc(100vh - 230px); padding: 32px 22px; place-items: start center; }
+      .login-box .brand { display: flex; margin-bottom: 35px; }
+      .login-form-area .brand-mark { width: 29px; height: 29px; font-size: 15px; }
+      .login-box h2 { font-size: 27px; }
+      
+      /* Mobile notification dropdown placement */
+      .notif-dropdown {
+        position: fixed;
+        top: 66px;
+        left: 12px;
+        right: 12px;
+        width: auto;
+        max-width: 100%;
+        border-radius: 16px;
+      }
+      .toast {
+        bottom: 80px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark"><i data-lucide="chef-hat"></i></div><div>ChefFlow<small>CHEF PARTNER</small></div></div>
+      <div class="nav-label">MAIN MENU</div>
+      <button class="nav-item active" data-page="dashboard"><span class="nav-icon"><i data-lucide="house"></i></span>Dashboard</button>
+      <button class="nav-item" data-page="bookings"><span class="nav-icon"><i data-lucide="calendar-days"></i></span>Bookings <span class="nav-badge">2</span></button>
+      <button class="nav-item" data-page="earnings"><span class="nav-icon"><i data-lucide="wallet-cards"></i></span>Earnings</button>
+      <button class="nav-item" data-page="ratings"><span class="nav-icon"><i data-lucide="star"></i></span>Ratings &amp; Performance</button>
+      <div class="nav-label">ACCOUNT</div>
+      <button class="nav-item" data-page="profile"><span class="nav-icon"><i data-lucide="user-round"></i></span>Profile &amp; Documents</button>
+      <button class="nav-item" data-page="support"><span class="nav-icon"><i data-lucide="circle-help"></i></span>Support &amp; Help</button>
+      <div class="sidebar-foot"><div class="foot-profile"><div class="avatar">AK</div><div>Arjun Kapoor<span>Head Chef · Verified</span></div></div></div>
+    </aside>
+
+    <main class="main">
+      <!-- Universal Topbar Across All Pages -->
+      <header class="topbar">
+        <div class="crumb">Chef Partner&nbsp; / &nbsp;<b id="crumbPage">Dashboard</b></div>
+        <div class="top-actions">
+          <!-- Workable Notification Center -->
+          <div class="notif-wrapper" id="notifWrapper">
+            <button class="bell" id="notifBellBtn" aria-label="Notifications" aria-expanded="false" title="Notifications">
+              <i data-lucide="bell"></i>
+              <span class="bell-badge" id="bellBadge">2</span>
+            </button>
+            <div class="notif-dropdown" id="notifDropdown">
+              <div class="notif-header">
+                <div class="notif-title-row">
+                  <div class="notif-title-group">
+                    <h3>Notifications</h3>
+                    <span class="notif-count-pill" id="notifUnreadPill">2 unread</span>
+                  </div>
+                  <div class="notif-header-actions">
+                    <button class="notif-action-btn" id="markAllReadBtn" title="Mark all as read">
+                      <i data-lucide="check-check"></i> <span>Mark read</span>
+                    </button>
+                    <button class="notif-action-btn" id="clearAllNotifsBtn" title="Clear all">
+                      <i data-lucide="trash-2"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="notif-tabs">
+                  <button class="notif-tab active" data-notif-filter="all">All <span class="tab-badge" id="tabBadgeAll">4</span></button>
+                  <button class="notif-tab" data-notif-filter="unread">Unread <span class="tab-badge" id="tabBadgeUnread">2</span></button>
+                  <button class="notif-tab" data-notif-filter="booking">Bookings</button>
+                  <button class="notif-tab" data-notif-filter="earnings">Earnings</button>
+                </div>
+              </div>
+              <div class="notif-list" id="notifList"></div>
+              <div class="notif-empty" id="notifEmpty" style="display:none;">
+                <div class="notif-empty-icon"><i data-lucide="bell-off"></i></div>
+                <h4>All caught up!</h4>
+                <p>No notifications match this filter.</p>
+              </div>
+              <div class="notif-footer">
+                <span>Live updates active</span>
+                <button class="notif-refresh-btn" id="restoreNotifsBtn">Restore Demo Alerts</button>
+              </div>
+            </div>
+          </div>
+          
+          <button class="online-toggle" id="onlineToggle">
+            <span class="switch"><i></i></span>
+            <span id="onlineText">You're online</span>
+          </button>
+        </div>
+      </header>
+      <div class="notif-backdrop" id="notifBackdrop"></div>
+
+      <!-- Dashboard Page -->
+      <section class="page active" id="dashboardPage">
+        <section class="greeting"><div><h1>Good morning, Arjun <span class="verified">✓ VERIFIED</span></h1><p>Here’s what your kitchen has on the menu today.</p></div><div class="date-chip"><i data-lucide="calendar-days" style="width:13px;vertical-align:-2px"></i>&nbsp; Monday, 31 August 2026</div></section>
+
+        <section class="overview">
+          <article class="metric"><div class="metric-icon"><i data-lucide="calendar-days"></i></div><div class="metric-label">TODAY'S BOOKINGS</div><div class="metric-value">03 <span class="metric-note">+1 new</span></div></article>
+          <article class="metric"><div class="metric-icon"><i data-lucide="indian-rupee"></i></div><div class="metric-label">TODAY'S EARNINGS</div><div class="metric-value">₹4,850 <span class="metric-note">↗ 12%</span></div></article>
+          <article class="metric"><div class="metric-icon"><i data-lucide="star"></i></div><div class="metric-label">AVERAGE RATING</div><div class="metric-value">4.8 <span class="metric-note neutral">★</span></div></article>
+          <article class="metric clickable-action" id="metricPendingActions" title="Click to view pending actions"><div class="metric-icon"><i data-lucide="bell-ring"></i></div><div class="metric-label">PENDING ACTIONS</div><div class="metric-value">02 <span class="metric-note neutral">Review</span></div></article>
+        </section>
+
+        <section class="content-grid">
+          <div>
+            <article class="card">
+              <div class="card-head"><div><h2 class="card-title">Upcoming bookings</h2><p class="card-sub">Your confirmed services for this week</p></div><button class="text-button" data-page="bookings">VIEW ALL <i data-lucide="chevron-right"></i></button></div>
+              <div class="booking-list">
+                <div class="booking"><div class="booking-date">SEP<b>01</b>TUE</div><div class="booking-main"><h3>Riya Malhotra</h3><p>Koramangala, Bengaluru · 7:30 PM</p><div class="booking-tags"><span class="tag">North Indian</span><span class="tag">12 guests</span></div></div><div class="booking-side"><b>₹2,400</b>Upcoming</div></div>
+                <div class="booking"><div class="booking-date">SEP<b>02</b>WED</div><div class="booking-main"><h3>Rohan Mehta</h3><p>Indiranagar, Bengaluru · 1:00 PM</p><div class="booking-tags"><span class="tag">Italian</span><span class="tag">8 guests</span></div></div><div class="booking-side"><b>₹1,750</b>Upcoming</div></div>
+                <div class="booking"><div class="booking-date">SEP<b>04</b>FRI</div><div class="booking-main"><h3>Ananya Sethi</h3><p>HSR Layout, Bengaluru · 8:00 PM</p><div class="booking-tags"><span class="tag">Cocktail menu</span><span class="tag">20 guests</span></div></div><div class="booking-side"><b>₹4,600</b>Upcoming</div></div>
+              </div>
+              <div class="upcoming-footer"><span><i class="status-dot"></i>1 service needs to be started today</span><button class="text-button" data-toast="Service started — have a great event!">START SERVICE</button></div>
+            </article>
+            <div class="bottom-row"><article class="card wallet"><h2 class="card-title">Available wallet balance</h2><div class="wallet-balance">₹ 8,240.00</div><p>₹1,500 will clear after your next service</p><button data-page="earnings">REQUEST PAYOUT <i data-lucide="chevron-right"></i></button></article><article class="card tip"><div class="tip-icon"><i data-lucide="sparkles"></i></div><div><b>Keep your 5-star streak going!</b><p>Your presentation score is trending up. Add a plated garnish photo to your next service recap.</p></div></article></div>
+          </div>
+          <div>
+            <article class="card booking-panel"><div class="card-head"><div><h2 class="card-title">New booking request</h2><p class="card-sub">Respond before it goes to another chef</p></div><button class="text-button" style="color:#f9d64f" data-page="bookings">DETAILS</button></div><div class="new-booking"><span class="status">EXPIRES IN 08:42</span><h3>Private dinner with friends</h3><p>By Neha Sharma · Whitefield, Bengaluru</p><div class="booking-meta"><div>DATE &amp; TIME<b>Today, 7:00 PM</b></div><div>GUESTS<b>10 people</b></div><div>MENU TYPE<b>South Indian</b></div><div>PREP TIME<b>4 hours</b></div></div><div class="earn"><span>You'll earn after commission</span><strong>₹ 3,200</strong></div><div class="action-row"><button class="reject" id="rejectBooking">Reject</button><button class="accept" id="acceptBooking">Accept booking</button></div></div></article>
+            <article class="card" style="margin-top:22px"><div class="card-head"><div><h2 class="card-title">Ratings &amp; performance</h2><p class="card-sub">Based on 24 recent services</p></div><button class="text-button" data-page="ratings">VIEW REPORT</button></div><div class="performance"><div class="rating-circle"><b>4.8</b><span>out of 5.0</span></div><div><div class="score"><span>Behaviour</span><b>5.0</b><div class="bar"><i style="width:100%"></i></div></div><div class="score"><span>Punctuality</span><b>4.9</b><div class="bar"><i style="width:98%"></i></div></div><div class="score"><span>Hygiene</span><b>4.8</b><div class="bar"><i style="width:96%"></i></div></div><div class="score"><span>Taste &amp; presentation</span><b>4.7</b><div class="bar"><i style="width:94%"></i></div></div></div></div></article>
+          </div>
+        </section>
+      </section>
+
+      <!-- Bookings Page -->
+      <section class="page" id="bookingsPage">
+        <div class="page-heading"><div><h1>My bookings</h1><p>Manage all your confirmed and completed services.</p></div><button class="outline-btn" data-page="calendar"><i data-lucide="calendar-days" style="width:13px;vertical-align:-2px;margin-right:4px"></i>CALENDAR VIEW</button></div>
+        <div class="filter-tabs"><button class="active" data-status="upcoming">Upcoming 3</button><button data-status="inprogress">In Progress 1</button><button data-status="completed">Completed 3</button><button data-status="cancelled">Cancelled 1</button></div>
+        <article class="card booking-wide" data-status="upcoming"><div class="booking-date">SEP<b>01</b>TUE</div><div class="booking-main"><h3>Riya Malhotra</h3><p>North Indian dinner · 12 guests</p><span class="location">⌖ Koramangala, Bengaluru · 7:30 PM</span></div><div class="booking-side"><b>₹2,400</b>Net payable</div><button class="outline-btn" data-toast="Customer: Riya · Menu & kitchen requirements loaded">VIEW DETAILS</button></article>
+        <article class="card booking-wide" data-status="upcoming"><div class="booking-date">SEP<b>02</b>WED</div><div class="booking-main"><h3>Rohan Mehta</h3><p>Italian lunch · 8 guests</p><span class="location">⌖ Indiranagar, Bengaluru · 1:00 PM</span></div><div class="booking-side"><b>₹1,750</b>Net payable</div><button class="outline-btn" data-toast="Customer: Rohan · Menu & kitchen requirements loaded">VIEW DETAILS</button></article>
+        <article class="card booking-wide" data-status="upcoming"><div class="booking-date">AUG<b>31</b>MON</div><div class="booking-main"><h3>Private dinner with friends</h3><p>South Indian menu · 10 guests</p><span class="location">⌖ Whitefield, Bengaluru · 7:00 PM</span></div><div class="service-state" id="serviceStatus">● READY TO START</div><button class="accept" id="serviceButton">START SERVICE</button></article>
+        <article class="card booking-wide" data-status="inprogress" hidden><div class="booking-date">AUG<b>31</b>MON</div><div class="booking-main"><h3>Imon Das</h3><p>Bengali family dinner · 6 guests</p><span class="location">⌖ Jayanagar, Bengaluru · Started 5:30 PM</span></div><div class="service-state">● IN PROGRESS</div><button class="outline-btn" data-toast="Service details and customer contact loaded">VIEW SERVICE</button></article>
+        <article class="card booking-wide" data-status="completed" hidden><div class="booking-date">AUG<b>29</b>SAT</div><div class="booking-main"><h3>Hema Gupta</h3><p>North Indian dinner · 14 guests</p><span class="location">⌖ HSR Layout, Bengaluru · Completed</span></div><div class="booking-side"><b>₹2,700</b>Paid</div><span class="service-state done">● COMPLETED</span></article>
+        <article class="card booking-wide" data-status="completed" hidden><div class="booking-date">AUG<b>27</b>THU</div><div class="booking-main"><h3>Vikram Rao</h3><p>Continental lunch · 9 guests</p><span class="location">⌖ Richmond Town, Bengaluru · Completed</span></div><div class="booking-side"><b>₹1,980</b>Paid</div><span class="service-state done">● COMPLETED</span></article>
+        <article class="card booking-wide" data-status="completed" hidden><div class="booking-date">AUG<b>24</b>MON</div><div class="booking-main"><h3>Nisha Iyer</h3><p>Vegetarian buffet · 25 guests</p><span class="location">⌖ Malleshwaram, Bengaluru · Completed</span></div><div class="booking-side"><b>₹4,250</b>Paid</div><span class="service-state done">● COMPLETED</span></article>
+        <article class="card booking-wide" data-status="cancelled" hidden><div class="booking-date">AUG<b>21</b>FRI</div><div class="booking-main"><h3>Sana Khan</h3><p>Birthday brunch · 16 guests</p><span class="location">⌖ Hebbal, Bengaluru · Customer cancelled</span></div><div class="booking-side"><b>₹0</b>No payout</div><span class="service-state" style="color:#b14f49">● CANCELLED</span></article>
+      </section>
+
+      <!-- Calendar Page -->
+      <section class="page" id="calendarPage">
+        <div class="page-heading"><div><h1>Booking calendar</h1><p>Select a highlighted date to view its service details.</p></div><button class="outline-btn" data-page="bookings"><i data-lucide="chevron-left"></i> LIST VIEW</button></div>
+        <article class="card calendar-card"><div class="calendar-top"><button class="calendar-arrow" data-toast="Showing August 2026"><i data-lucide="chevron-left"></i></button><h2>September 2026</h2><button class="calendar-arrow" data-toast="Showing October 2026"><i data-lucide="chevron-right"></i></button></div><div class="calendar-grid"><div class="weekday">SUN</div><div class="weekday">MON</div><div class="weekday">TUE</div><div class="weekday">WED</div><div class="weekday">THU</div><div class="weekday">FRI</div><div class="weekday">SAT</div><button class="day muted">30</button><button class="day today" data-toast="31 August: Private dinner · ready to start">31</button><button class="day booked" data-toast="1 September: Riya Malhotra · 7:30 PM">1</button><button class="day booked" data-toast="2 September: Rohan Mehta · 1:00 PM">2</button><button class="day">3</button><button class="day booked" data-toast="4 September: Ananya Sethi · 8:00 PM">4</button><button class="day">5</button><button class="day">6</button><button class="day">7</button><button class="day">8</button><button class="day">9</button><button class="day">10</button><button class="day">11</button><button class="day">12</button><button class="day">13</button><button class="day">14</button><button class="day">15</button><button class="day">16</button><button class="day">17</button><button class="day">18</button><button class="day">19</button><button class="day">20</button><button class="day">21</button><button class="day">22</button><button class="day">23</button><button class="day">24</button><button class="day">25</button><button class="day">26</button><button class="day">27</button><button class="day">28</button><button class="day">29</button><button class="day">30</button><button class="day muted">1</button><button class="day muted">2</button><button class="day muted">3</button></div><div class="calendar-legend"><span><i></i>Confirmed booking</span><span><i class="today-dot"></i>Today</span></div></article>
+      </section>
+
+      <!-- Earnings Page -->
+      <section class="page" id="earningsPage">
+        <div class="page-heading"><div><h1>Earnings</h1><p>A clear view of your service income and payouts.</p></div><button class="accept" data-toast="Payout request submitted successfully">REQUEST PAYOUT</button></div>
+        <div class="earnings-grid"><article class="earning-card"><small>TODAY</small><b>₹4,850</b></article><article class="earning-card"><small>THIS WEEK</small><b>₹18,360</b></article><article class="earning-card"><small>THIS MONTH</small><b>₹61,240</b></article><article class="earning-card highlight"><small>TOTAL EARNINGS</small><b>₹2,84,700</b></article></div>
+        <article class="card table-card"><div class="card-head"><div><h2 class="card-title">Transaction history</h2><p class="card-sub">Booking-wise settlement record</p></div><button class="text-button" data-toast="Transaction history downloaded">DOWNLOAD</button></div><table><thead><tr><th>BOOKING</th><th>GROSS AMOUNT</th><th>COMMISSION</th><th>NET PAYABLE</th><th>STATUS</th></tr></thead><tbody><tr><td><b>Hema Gupta</b><small>26 Aug 2026 · Dinner service</small></td><td>₹3,000</td><td>− ₹300</td><td class="success">₹2,700</td><td><span class="paid">PAID</span></td></tr><tr><td><b>Imon Das</b><small>24 Aug 2026 · Family lunch</small></td><td>₹2,200</td><td>− ₹220</td><td class="success">₹1,980</td><td><span class="paid">PAID</span></td></tr><tr><td><b>Riya Malhotra</b><small>01 Sep 2026 · Dinner service</small></td><td>₹2,650</td><td>− ₹250</td><td class="success">₹2,400</td><td><span class="tag">UPCOMING</span></td></tr></tbody></table></article>
+      </section>
+
+      <!-- Ratings Page -->
+      <section class="page" id="ratingsPage">
+        <div class="page-heading"><div><h1>Ratings &amp; performance</h1><p>How guests experience your service.</p></div><div class="date-chip">Last 30 days</div></div>
+        <div class="content-grid"><article class="card"><div class="card-head"><div><h2 class="card-title">Performance score</h2><p class="card-sub">24 customer reviews received</p></div></div><div class="performance"><div class="rating-circle"><b>4.8</b><span>out of 5.0</span></div><div><div class="score"><span>Behaviour</span><b>5.0</b><div class="bar"><i style="width:100%"></i></div></div><div class="score"><span>Punctuality</span><b>4.9</b><div class="bar"><i style="width:98%"></i></div></div><div class="score"><span>Hygiene</span><b>4.8</b><div class="bar"><i style="width:96%"></i></div></div><div class="score"><span>Taste</span><b>4.7</b><div class="bar"><i style="width:94%"></i></div></div><div class="score"><span>Presentation</span><b>4.7</b><div class="bar"><i style="width:94%"></i></div></div></div></div></article><article class="card tip"><div class="tip-icon">✦</div><div><b>Improvement insight</b><p>Guests love the flavour and hygiene. Add a short menu walkthrough before serving to improve presentation scores.</p></div></article></div>
+        <article class="card" style="margin-top:22px"><div class="card-head"><div><h2 class="card-title">Recent compliments</h2><p class="card-sub">What your customers are saying</p></div></div><div class="review-list"><div class="review"><div class="avatar">RG</div><div><b>Riya Gupta</b><p>“Arjun was punctual, very professional, and the food was exceptional.”</p></div><span class="stars">★★★★★</span></div><div class="review"><div class="avatar" style="background:#637d9d">SM</div><div><b>Sameer Malhotra</b><p>“Beautiful presentation and a wonderful home dining experience.”</p></div><span class="stars">★★★★★</span></div></div></article>
+      </section>
+
+      <!-- Profile Page -->
+      <section class="page" id="profilePage">
+        <div class="page-heading"><div><h1>Profile &amp; documents</h1><p>Keep your professional details accurate and current.</p></div></div>
+        <div class="profile-grid"><article class="card profile-summary"><div class="avatar">AK</div><h2>Arjun Kapoor</h2><p>Head Chef · Bengaluru</p><div class="verified-block">✓ Profile verified<br><span style="font-weight:400">Your documents are securely on file.</span></div><button class="outline-btn" style="margin-top:15px" data-page="support">Need help with documents? <i data-lucide="chevron-right"></i></button></article><article class="card form-card"><h2>Personal and work details</h2><div class="form-grid"><div class="field"><label>FULL NAME</label><input value="Arjun Kapoor"></div><div class="field"><label>MOBILE NUMBER</label><input value="+91 98765 43210"></div><div class="field"><label>WORK EXPERIENCE</label><select><option>8 years</option><option>5 years</option></select></div><div class="field"><label>PRIMARY CUISINE</label><select><option>North Indian &amp; Mughlai</option><option>South Indian</option></select></div><div class="field full"><label>SKILLS</label><input value="Private dining, plated menus, buffet service"></div></div><div class="form-divider"></div><h2>Identity documents</h2><div class="form-grid"><div class="field"><label>AADHAAR / ID</label><input class="disabled-field" value="Verified • ending 5812" disabled></div><div class="field"><label>DOCUMENT STATUS</label><input class="disabled-field" value="All documents verified" disabled></div></div><div class="save-row"><button class="accept" data-toast="Profile changes saved successfully">SAVE CHANGES</button></div></article></div>
+      </section>
+
+      <!-- Support Page -->
+      <section class="page" id="supportPage">
+        <div class="page-heading"><div><h1>Support &amp; help</h1><p>We’re here when you need us.</p></div></div>
+        <div class="support-grid"><button class="support-option" data-toast="Connecting you to ChefFlow support chat"><span><i data-lucide="message-circle"></i></span><div><b>Chat with support</b><small>Usually replies in a few minutes</small></div></button><button class="support-option" data-toast="Support number: +91 80 4567 8900"><span><i data-lucide="phone-call"></i></span><div><b>Call support</b><small>Available 8 AM – 10 PM</small></div></button><button class="support-option" data-toast="Ticket form opened — demo only"><span><i data-lucide="ticket"></i></span><div><b>Raise a ticket</b><small>Track a detailed issue</small></div></button></div>
+        <article class="card"><div class="card-head"><div><h2 class="card-title">Frequently asked questions</h2><p class="card-sub">Quick answers for chef partners</p></div></div><div class="faq"><button data-toast="Payouts are usually completed within 2–3 business days.">When will I receive my payout? <i data-lucide="chevron-right"></i></button><button data-toast="Open the booking, then select Support if you need to change availability.">How do I handle a booking conflict? <i data-lucide="chevron-right"></i></button><button data-toast="For secure ID changes, please raise a support ticket.">How can I update my Aadhaar / ID? <i data-lucide="chevron-right"></i></button></div></article>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav"><button class="active" data-page="dashboard"><i data-lucide="house"></i>Home</button><button data-page="bookings"><i data-lucide="calendar-days"></i>Bookings</button><button data-page="earnings"><i data-lucide="wallet-cards"></i>Earnings</button><button data-page="ratings"><i data-lucide="star"></i>Ratings</button><button data-page="profile"><i data-lucide="user-round"></i>Profile</button></nav>
+  
+  <section class="login-screen" id="loginScreen"><div class="login-art"><div class="brand"><div class="brand-mark"><i data-lucide="chef-hat"></i></div><div>ChefFlow<small style="color:#d5dfd9">CHEF PARTNER</small></div></div><div class="login-copy"><h1>Your kitchen.<br>Your schedule.<br>Your growth.</h1><p>Join thousands of trusted chefs creating memorable dining experiences every day.</p></div><div class="login-steps"><div><b>01</b>Phone verification</div><div><b>02</b>Chef dashboard</div><div><b>03</b>Grow your business</div></div></div><div class="login-form-area"><div class="login-box"><div class="brand"><div class="brand-mark"><i data-lucide="chef-hat"></i></div><div>ChefFlow</div></div><div class="login-step active" id="phoneStep"><h2>Welcome, Chef!</h2><p>Enter your mobile number to access your Chef Partner dashboard.</p><div class="phone-field"><span>+91</span><input id="phoneInput" type="tel" inputmode="numeric" maxlength="10" placeholder="Enter mobile number"></div><button class="primary-btn" style="margin-top:14px" id="sendOtp">CONTINUE WITH OTP</button><p class="login-note">Demo only — any 10-digit mobile number will work.</p></div><div class="login-step" id="otpStep"><h2>Verify your number</h2><p>Use the six-digit demo OTP shown in the toast. A live app would securely send this code to your phone.</p><div class="otp-row"><input maxlength="1" inputmode="numeric" autofocus><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"><input maxlength="1" inputmode="numeric"></div><button class="primary-btn" id="verifyOtp">VERIFY &amp; ENTER DASHBOARD</button><button class="back-login" id="backLogin"><i data-lucide="chevron-left"></i> CHANGE PHONE NUMBER</button></div></div></div></section>
+  
+  <div class="modal-wrap" id="bookingModal"><div class="modal"><div class="modal-top"><h2>Booking confirmed!</h2><button class="close" id="closeModal">×</button></div><p>This booking has moved to your Upcoming services.</p><div class="detail-list"><div><span>Customer</span><b>Neha Sharma</b></div><div><span>Service</span><b>Today, 7:00 PM</b></div><div><span>Your net earnings</span><b style="color:#168955">₹3,200</b></div></div><div class="action-row"><button class="accept" id="modalDone">VIEW UPCOMING BOOKINGS</button></div></div></div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    const sessionKey = 'chefflow_demo_session_expires';
+    const loginScreen = document.getElementById('loginScreen');
+
+    function showToast(message, type = '') {
+      toast.textContent = message;
+      toast.classList.toggle('error', type === 'error');
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+    }
+
+    document.querySelectorAll('[data-toast]').forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showToast(button.dataset.toast);
+      });
+    });
+
+    const pageOrder = ['dashboard', 'bookings', 'earnings', 'ratings', 'profile', 'support'];
+    const pageTitles = {
+      dashboard: 'Dashboard',
+      bookings: 'Bookings',
+      calendar: 'Calendar View',
+      earnings: 'Earnings & Payouts',
+      ratings: 'Ratings & Performance',
+      profile: 'Profile & Documents',
+      support: 'Support & Help'
+    };
+    let currentPage = 'dashboard';
+
+    function goPage(name) {
+      if (!document.getElementById(name + 'Page')) return;
+      if (name === currentPage) return;
+      const oldIndex = currentPage === 'calendar' ? 1.5 : (pageOrder.indexOf(currentPage) >= 0 ? pageOrder.indexOf(currentPage) : 5);
+      const newIndex = name === 'calendar' ? 1.5 : (pageOrder.indexOf(name) >= 0 ? pageOrder.indexOf(name) : 5);
+      const direction = newIndex >= oldIndex ? 'enter-from-right' : 'enter-from-left';
+      const nextPage = document.getElementById(name + 'Page');
+      window.scrollTo(0, 0);
+      document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active', 'enter-from-right', 'enter-from-left', 'leaving', 'slide-from-right', 'slide-from-left', 'slide-to-left', 'slide-to-right');
+        page.style.removeProperty('top');
+        page.style.removeProperty('left');
+        page.style.removeProperty('width');
+      });
+      nextPage.classList.add('active', direction);
+      setTimeout(() => {
+        nextPage.classList.remove(direction);
+      }, 210);
+      
+      document.querySelectorAll('[data-page]').forEach(button => {
+        button.classList.toggle('active', button.dataset.page === name);
+      });
+
+      const crumbPage = document.getElementById('crumbPage');
+      if (crumbPage && pageTitles[name]) {
+        crumbPage.textContent = pageTitles[name];
+      }
+
+      currentPage = name;
+    }
+
+    document.querySelectorAll('[data-page]').forEach(button => {
+      button.addEventListener('click', () => goPage(button.dataset.page));
+    });
+
+    // Swipe navigation on touch devices
+    let swipeStartX = 0, swipeStartY = 0, swipeTargetIsControl = false;
+    document.querySelector('.main').addEventListener('touchstart', event => {
+      const touch = event.changedTouches[0];
+      swipeStartX = touch.clientX;
+      swipeStartY = touch.clientY;
+      swipeTargetIsControl = Boolean(event.target.closest('button, input, select, textarea, a, .notif-dropdown'));
+    }, {passive: true});
+
+    document.querySelector('.main').addEventListener('touchend', event => {
+      if (swipeTargetIsControl) return;
+      const touch = event.changedTouches[0];
+      const xDistance = touch.clientX - swipeStartX;
+      const yDistance = touch.clientY - swipeStartY;
+      if (Math.abs(xDistance) < 55 || Math.abs(xDistance) <= Math.abs(yDistance)) return;
+      const index = pageOrder.indexOf(currentPage);
+      if (index < 0) return;
+      if (xDistance < 0 && index < pageOrder.length - 1) goPage(pageOrder[index + 1]);
+      if (xDistance > 0 && index > 0) goPage(pageOrder[index - 1]);
+    }, {passive: true});
+
+    // Online toggle
+    document.getElementById('onlineToggle').addEventListener('click', function() {
+      this.classList.toggle('offline');
+      const online = !this.classList.contains('offline');
+      document.getElementById('onlineText').textContent = online ? "You're online" : "You're offline";
+      showToast(online ? 'You are now available for bookings' : 'You are now offline');
+    });
+
+    // Bookings and Modal
+    document.getElementById('acceptBooking').addEventListener('click', () => {
+      document.getElementById('bookingModal').classList.add('show');
+      markNotificationActionDone('notif-1');
+    });
+    document.getElementById('rejectBooking').addEventListener('click', () => {
+      showToast('Booking rejected — returned to matching queue');
+      markNotificationActionDone('notif-1');
+    });
+
+    function closeModal() {
+      document.getElementById('bookingModal').classList.remove('show');
+      goPage('bookings');
+      showToast('Opening your upcoming bookings');
+    }
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    document.getElementById('modalDone').addEventListener('click', closeModal);
+    document.getElementById('bookingModal').addEventListener('click', e => {
+      if (e.target.id === 'bookingModal') document.getElementById('bookingModal').classList.remove('show');
+    });
+
+    document.getElementById('serviceButton').addEventListener('click', function() {
+      const starting = this.textContent.includes('START');
+      this.textContent = starting ? 'COMPLETE SERVICE' : 'SERVICE COMPLETED';
+      this.classList.toggle('outline-btn', !starting);
+      this.classList.toggle('accept', starting);
+      document.getElementById('serviceStatus').textContent = starting ? '● IN PROGRESS' : '● COMPLETED';
+      document.getElementById('serviceStatus').classList.add('done');
+      showToast(starting ? 'Service started — have a great event!' : 'Service completed — earnings are pending settlement');
+    });
+
+    const bookingCards = document.querySelectorAll('.booking-wide[data-status]');
+    document.querySelectorAll('.filter-tabs button').forEach(button => {
+      button.addEventListener('click', function() {
+        document.querySelectorAll('.filter-tabs button').forEach(tab => tab.classList.remove('active'));
+        this.classList.add('active');
+        bookingCards.forEach(card => card.hidden = card.dataset.status !== this.dataset.status);
+      });
+    });
+
+    // ==========================================
+    // WORKABLE NOTIFICATION SYSTEM
+    // ==========================================
+    const defaultNotifications = [
+      {
+        id: 'notif-1',
+        category: 'booking',
+        title: 'New Booking Request',
+        desc: 'Neha Sharma requested a Private Dinner for 10 guests today at 7:00 PM.',
+        meta: 'Net Earnings: ₹3,200 · Whitefield',
+        time: '5m ago',
+        unread: true,
+        icon: 'calendar-plus',
+        actionType: 'booking-accept'
+      },
+      {
+        id: 'notif-2',
+        category: 'earnings',
+        title: 'Payment Credited',
+        desc: 'Payout of ₹2,700 for Hema Gupta’s dinner service has been credited.',
+        meta: 'UTR: HD89201948 · Direct transfer',
+        time: '45m ago',
+        unread: true,
+        icon: 'wallet',
+        actionPage: 'earnings'
+      },
+      {
+        id: 'notif-3',
+        category: 'ratings',
+        title: 'New 5-Star Review',
+        desc: 'Riya Gupta: “Arjun was punctual, very professional, and the food was exceptional.”',
+        meta: 'Behaviour: 5.0 · Taste: 5.0',
+        time: '3h ago',
+        unread: false,
+        icon: 'star',
+        actionPage: 'ratings'
+      },
+      {
+        id: 'notif-4',
+        category: 'booking',
+        title: 'Upcoming Service Reminder',
+        desc: 'Upcoming service for Rohan Mehta (8 guests) scheduled for Wednesday, 1:00 PM.',
+        meta: 'Indiranagar · Italian lunch',
+        time: '1d ago',
+        unread: false,
+        icon: 'clock',
+        actionPage: 'bookings'
+      }
+    ];
+
+    let notifications = [];
+    try {
+      const stored = localStorage.getItem('chefflow_notifications');
+      notifications = stored ? JSON.parse(stored) : defaultNotifications;
+    } catch(e) {
+      notifications = defaultNotifications;
+    }
+    let currentNotifFilter = 'all';
+
+    function saveNotifications() {
+      try {
+        localStorage.setItem('chefflow_notifications', JSON.stringify(notifications));
+      } catch(e) {}
+    }
+
+    const notifBellBtn = document.getElementById('notifBellBtn');
+    const notifDropdown = document.getElementById('notifDropdown');
+    const notifBackdrop = document.getElementById('notifBackdrop');
+    const bellBadge = document.getElementById('bellBadge');
+    const notifUnreadPill = document.getElementById('notifUnreadPill');
+    const tabBadgeAll = document.getElementById('tabBadgeAll');
+    const tabBadgeUnread = document.getElementById('tabBadgeUnread');
+    const notifList = document.getElementById('notifList');
+    const notifEmpty = document.getElementById('notifEmpty');
+
+    function toggleNotifDropdown(forceState) {
+      const isShowing = notifDropdown.classList.contains('show');
+      const nextState = typeof forceState === 'boolean' ? forceState : !isShowing;
+      notifDropdown.classList.toggle('show', nextState);
+      notifBackdrop.classList.toggle('show', nextState);
+      notifBellBtn.classList.toggle('active', nextState);
+      notifBellBtn.setAttribute('aria-expanded', String(nextState));
+    }
+
+    function closeNotifDropdown() {
+      toggleNotifDropdown(false);
+    }
+
+    function markNotificationActionDone(id) {
+      const item = notifications.find(n => n.id === id);
+      if (item) {
+        item.unread = false;
+        saveNotifications();
+        renderNotifications();
+      }
+    }
+
+    function renderNotifications() {
+      const unreadCount = notifications.filter(n => n.unread).length;
+      const totalCount = notifications.length;
+
+      // Update Bell Badge
+      if (unreadCount > 0) {
+        bellBadge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+        bellBadge.classList.remove('hidden');
+      } else {
+        bellBadge.classList.add('hidden');
+      }
+
+      // Update Header Pill
+      if (unreadCount > 0) {
+        notifUnreadPill.textContent = `${unreadCount} unread`;
+        notifUnreadPill.style.background = '#fff4c8';
+        notifUnreadPill.style.color = '#8f6e00';
+      } else {
+        notifUnreadPill.textContent = 'All read';
+        notifUnreadPill.style.background = '#e6f6ed';
+        notifUnreadPill.style.color = '#1b8051';
+      }
+
+      // Update Tab Badges
+      if (tabBadgeAll) tabBadgeAll.textContent = totalCount;
+      if (tabBadgeUnread) tabBadgeUnread.textContent = unreadCount;
+
+      // Filter
+      let filtered = notifications;
+      if (currentNotifFilter === 'unread') {
+        filtered = notifications.filter(n => n.unread);
+      } else if (currentNotifFilter === 'booking') {
+        filtered = notifications.filter(n => n.category === 'booking');
+      } else if (currentNotifFilter === 'earnings') {
+        filtered = notifications.filter(n => n.category === 'earnings');
+      }
+
+      if (filtered.length === 0) {
+        notifList.style.display = 'none';
+        notifEmpty.style.display = 'block';
+      } else {
+        notifList.style.display = 'block';
+        notifEmpty.style.display = 'none';
+
+        notifList.innerHTML = filtered.map(item => {
+          let iconClass = 'notif-icon-alert';
+          let iconName = item.icon || 'bell';
+          if (item.category === 'booking') iconClass = 'notif-icon-booking';
+          else if (item.category === 'earnings') iconClass = 'notif-icon-earnings';
+          else if (item.category === 'ratings') iconClass = 'notif-icon-ratings';
+
+          let actionButtonsHtml = '';
+          if (item.actionType === 'booking-accept') {
+            actionButtonsHtml = `
+              <div class="notif-actions" onclick="event.stopPropagation()">
+                <button class="notif-btn-sm notif-btn-accept" data-notif-accept="${item.id}">Accept Booking</button>
+                <button class="notif-btn-sm notif-btn-view" data-notif-details="${item.id}">Details</button>
+              </div>
+            `;
+          } else if (item.actionPage) {
+            actionButtonsHtml = `
+              <div class="notif-actions" onclick="event.stopPropagation()">
+                <button class="notif-btn-sm notif-btn-view" data-notif-page="${item.actionPage}" data-notif-id="${item.id}" style="display:inline-flex;align-items:center;gap:4px;">View in ${item.actionPage.charAt(0).toUpperCase() + item.actionPage.slice(1)} <i data-lucide="chevron-right" style="width:12px;height:12px;"></i></button>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="notif-item ${item.unread ? 'unread' : ''}" data-notif-item="${item.id}">
+              <div class="notif-icon-wrap ${iconClass}">
+                <i data-lucide="${iconName}"></i>
+              </div>
+              <div class="notif-content">
+                <div class="notif-row-top">
+                  <span class="notif-title">
+                    ${item.unread ? '<span class="notif-unread-dot" title="Unread"></span>' : ''}
+                    ${item.title}
+                  </span>
+                  <span class="notif-time">${item.time}</span>
+                </div>
+                <p class="notif-desc">${item.desc}</p>
+                ${item.meta ? `<span class="notif-meta">${item.meta}</span>` : ''}
+                ${actionButtonsHtml}
+              </div>
+              <div class="notif-item-tools" onclick="event.stopPropagation()">
+                <button class="notif-dismiss-btn" data-notif-dismiss="${item.id}" title="Dismiss">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      lucide.createIcons();
+    }
+
+    // Toggle dropdown
+    notifBellBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNotifDropdown();
+    });
+
+    notifBackdrop.addEventListener('click', closeNotifDropdown);
+
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#notifWrapper')) {
+        closeNotifDropdown();
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeNotifDropdown();
+      }
+    });
+
+    // Handle clicks inside notification list (delegation)
+    notifList.addEventListener('click', (e) => {
+      const dismissBtn = e.target.closest('[data-notif-dismiss]');
+      if (dismissBtn) {
+        const id = dismissBtn.dataset.notifDismiss;
+        const itemEl = dismissBtn.closest('.notif-item');
+        if (itemEl) {
+          itemEl.classList.add('removing');
+          setTimeout(() => {
+            notifications = notifications.filter(n => n.id !== id);
+            saveNotifications();
+            renderNotifications();
+            showToast('Notification removed');
+          }, 180);
+        }
+        return;
+      }
+
+      const acceptBtn = e.target.closest('[data-notif-accept]');
+      if (acceptBtn) {
+        const id = acceptBtn.dataset.notifAccept;
+        markNotificationActionDone(id);
+        closeNotifDropdown();
+        document.getElementById('bookingModal').classList.add('show');
+        return;
+      }
+
+      const detailsBtn = e.target.closest('[data-notif-details]');
+      if (detailsBtn) {
+        const id = detailsBtn.dataset.notifDetails;
+        markNotificationActionDone(id);
+        closeNotifDropdown();
+        goPage('bookings');
+        return;
+      }
+
+      const pageBtn = e.target.closest('[data-notif-page]');
+      if (pageBtn) {
+        const targetPage = pageBtn.dataset.notifPage;
+        const id = pageBtn.dataset.notifId;
+        markNotificationActionDone(id);
+        closeNotifDropdown();
+        goPage(targetPage);
+        return;
+      }
+
+      const itemCard = e.target.closest('[data-notif-item]');
+      if (itemCard) {
+        const id = itemCard.dataset.notifItem;
+        const item = notifications.find(n => n.id === id);
+        if (item) {
+          item.unread = false;
+          saveNotifications();
+          renderNotifications();
+          if (item.actionPage) {
+            closeNotifDropdown();
+            goPage(item.actionPage);
+          } else if (item.actionType === 'booking-accept') {
+            closeNotifDropdown();
+            document.getElementById('bookingModal').classList.add('show');
+          }
+        }
+      }
+    });
+
+    // Mark All Read
+    document.getElementById('markAllReadBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notifications.length === 0) return;
+      notifications.forEach(n => n.unread = false);
+      saveNotifications();
+      renderNotifications();
+      showToast('All notifications marked as read');
+    });
+
+    // Clear All
+    document.getElementById('clearAllNotifsBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (notifications.length === 0) return;
+      notifications = [];
+      saveNotifications();
+      renderNotifications();
+      showToast('All notifications cleared');
+    });
+
+    // Restore Demo Notifications
+    document.getElementById('restoreNotifsBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      notifications = JSON.parse(JSON.stringify(defaultNotifications));
+      saveNotifications();
+      renderNotifications();
+      showToast('Demo notifications restored');
+    });
+
+    // Filter Tabs
+    document.querySelectorAll('[data-notif-filter]').forEach(tab => {
+      tab.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.querySelectorAll('[data-notif-filter]').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentNotifFilter = tab.dataset.notifFilter;
+        renderNotifications();
+      });
+    });
+
+    // Link Dashboard Metric "Pending Actions" to Notifications
+    const metricPendingActions = document.getElementById('metricPendingActions');
+    if (metricPendingActions) {
+      metricPendingActions.addEventListener('click', () => {
+        // Activate unread filter tab
+        document.querySelectorAll('[data-notif-filter]').forEach(t => {
+          t.classList.toggle('active', t.dataset.notifFilter === 'unread');
+        });
+        currentNotifFilter = 'unread';
+        renderNotifications();
+        toggleNotifDropdown(true);
+      });
+    }
+
+    // Initialize notification engine & icons
+    renderNotifications();
+    lucide.createIcons();
+
+    // Login screen management
+    const phoneStep = document.getElementById('phoneStep'), otpStep = document.getElementById('otpStep'), phoneInput = document.getElementById('phoneInput');
+    document.getElementById('sendOtp').addEventListener('click', () => {
+      const digits = phoneInput.value.replace(/\D/g, '');
+      if (digits.length < 10) return showToast('Enter any valid 10-digit mobile number for this demo', 'error');
+      phoneStep.classList.remove('active');
+      otpStep.classList.add('active');
+      showToast('Demo OTP: 123456 — enter it to continue');
+      setTimeout(() => document.querySelector('.otp-row input').focus(), 50);
+    });
+
+    document.getElementById('backLogin').addEventListener('click', () => {
+      otpStep.classList.remove('active');
+      phoneStep.classList.add('active');
+      phoneInput.focus();
+    });
+
+    document.querySelectorAll('.otp-row input').forEach((input, index, inputs) => {
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/\D/g, '').slice(0, 1);
+        if (input.value && inputs[index + 1]) inputs[index + 1].focus();
+      });
+      input.addEventListener('keydown', event => {
+        if (event.key !== 'Backspace') return;
+        if (input.value && inputs[index - 1]) setTimeout(() => inputs[index - 1].focus(), 0);
+        if (!input.value && inputs[index - 1]) inputs[index - 1].focus();
+      });
+    });
+
+    document.getElementById('verifyOtp').addEventListener('click', () => {
+      const otp = [...document.querySelectorAll('.otp-row input')].map(input => input.value).join('');
+      if (otp !== '123456') return showToast('Incorrect OTP. Please use the demo OTP: 123456', 'error');
+      localStorage.setItem(sessionKey, String(Date.now() + 10 * 60 * 1000));
+      loginScreen.style.display = 'none';
+      showToast('Welcome to your Chef Partner dashboard!');
+    });
+
+    const sessionExpires = Number(localStorage.getItem(sessionKey));
+    if (sessionExpires > Date.now()) {
+      loginScreen.style.display = 'none';
+    } else {
+      localStorage.removeItem(sessionKey);
+    }
+  </script>
+</body>
+</html>
