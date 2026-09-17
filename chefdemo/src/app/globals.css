@@ -58,7 +58,8 @@
 }
 html,
 body {
-  overflow-x: hidden;
+  /* clip, not hidden: hidden makes body a scroll container and breaks the sticky sidebar */
+  overflow-x: clip;
 }
 body {
   margin: 0;

@@ -149,7 +149,9 @@ export default function ServiceDetail({
   const ot = overtime(b, now);
   const photos = data.photos.filter((p) => p.booking_id === b.id);
   const locked = manager || ["completed", "cancelled"].includes(b.status);
-  const saved = [...selected].sort().join() === [...b.dish_ids].sort().join();
+  const saved =
+    b.dish_ids.length > 0 &&
+    [...selected].sort().join() === [...b.dish_ids].sort().join();
   const action = (
     action: Parameters<typeof repo.actOnBooking>[1],
     message: string,
@@ -441,7 +443,7 @@ export default function ServiceDetail({
                 </p>
               </>
             )}
-            {!saved && (
+            {!manager && !saved && ["requested", "upcoming", "in_progress"].includes(b.status) && (
               <p className="warning-text small-copy">
                 Save your dish changes before continuing.
               </p>

@@ -61,17 +61,21 @@ export async function currentUser() {
 }
 export async function login(email: string, password: string) {
   const { error } = await supabase!.auth.signInWithPassword({
-    email,
+    email: email.trim().toLowerCase(),
     password,
   });
   if (error) throw error;
 }
 export async function register(name: string, email: string, password: string) {
   const { data, error } = await supabase!.auth.signUp({
-    email,
+    email: email.trim().toLowerCase(),
     password,
     options: { data: { name } },
   });
+  if (error?.code === "email_address_invalid")
+    throw new Error(
+      "Supabase rejected this email address. Use a real inbox (test domains like example.com or test.com are blocked) and the exact email your administrator added.",
+    );
   if (error) throw error;
   return Boolean(data.session);
 }
