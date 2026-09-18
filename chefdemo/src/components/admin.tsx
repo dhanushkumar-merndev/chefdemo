@@ -221,12 +221,12 @@ export function Analytics({ data, now }: { data: Data; now: number }) {
                 ).length;
                 return (
                   <tr key={p.id}>
-                    <td>
+                    <td data-label="Chef">
                       <b>{p.name}</b>
                       <small>{p.online ? "Available" : "Offline"}</small>
                     </td>
-                    <td>{bs.length}</td>
-                    <td>
+                    <td data-label="Completed">{bs.length}</td>
+                    <td data-label="Service value">
                       {money(
                         bs.reduce(
                           (s, b) => s + b.base_amount + b.overtime_amount,
@@ -234,10 +234,10 @@ export function Analytics({ data, now }: { data: Data; now: number }) {
                         ),
                       )}
                     </td>
-                    <td>
+                    <td data-label="Overtime">
                       {money(bs.reduce((s, b) => s + b.overtime_amount, 0))}
                     </td>
-                    <td>
+                    <td data-label="Photos">
                       {photoComplete}/{bs.length} services
                     </td>
                   </tr>
@@ -306,12 +306,12 @@ export function Staff({
           <tbody>
             {data.profiles.map((p) => (
               <tr key={p.id}>
-                <td>
+                <td data-label="Staff member">
                   <b>{p.name}</b>
                   {p.id === userId && <small>Your account</small>}
                 </td>
-                <td>{p.email}</td>
-                <td>
+                <td data-label="Email">{p.email}</td>
+                <td data-label="Role">
                   <select
                     aria-label={`Role for ${p.name}`}
                     className="compact-select"
@@ -329,8 +329,8 @@ export function Staff({
                     <option value="admin">Administrator</option>
                   </select>
                 </td>
-                <td><span className="status-pill">{p.approval_status || "approved"}</span>{p.id !== userId && <div className="action-row">{p.approval_status !== "approved" && <button className="accept" disabled={busy} onClick={() => run(() => repo.reviewMember(p.id, "approved"), "Member approved")}>Approve</button>}{p.approval_status !== "rejected" && <button className="reject" disabled={busy} onClick={() => run(() => repo.reviewMember(p.id, "rejected"), "Member rejected")}>Reject</button>}</div>}</td>
-                <td>
+                <td data-label="Approval"><span className="status-pill">{p.approval_status || "approved"}</span>{p.id !== userId && <div className="action-row">{p.approval_status !== "approved" && <button className="accept" disabled={busy} onClick={() => run(() => repo.reviewMember(p.id, "approved"), "Member approved")}>Approve</button>}{p.approval_status !== "rejected" && <button className="reject" disabled={busy} onClick={() => run(() => repo.reviewMember(p.id, "rejected"), "Member rejected")}>Reject</button>}</div>}</td>
+                <td data-label="Availability">
                   <span
                     className={`status-pill ${p.online ? "completed" : "cancelled"}`}
                   >

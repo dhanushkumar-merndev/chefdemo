@@ -1110,6 +1110,52 @@ export default function ChefFlow({
     setBell(false);
     window.scrollTo(0, 0);
   };
+  // The phone's back button should retrace steps inside the app, not leave it.
+  const back = () => {
+    if (typeof window !== "undefined" && window.history.state?.chefflow)
+      window.history.back();
+    else {
+      setMenuOpen(false);
+      setNewBooking(false);
+      setBell(false);
+      setServiceId(null);
+    }
+  };
+  const historyRef = useRef({ started: false, fromPop: false });
+  useEffect(() => {
+    if (!loaded) return;
+    const entry = {
+      chefflow: {
+        page,
+        serviceId,
+        overlay: menuOpen ? "menu" : newBooking ? "booking" : bell ? "bell" : null,
+      },
+    };
+    if (historyRef.current.fromPop) {
+      historyRef.current.fromPop = false;
+      return;
+    }
+    if (!historyRef.current.started) {
+      historyRef.current.started = true;
+      window.history.replaceState(entry, "");
+      return;
+    }
+    window.history.pushState(entry, "");
+  }, [loaded, page, serviceId, menuOpen, newBooking, bell]);
+  useEffect(() => {
+    const onPop = (event: PopStateEvent) => {
+      const entry = (event.state as { chefflow?: { page: Page; serviceId: string | null; overlay: string | null } } | null)?.chefflow;
+      if (!entry) return;
+      historyRef.current.fromPop = true;
+      setPage(entry.page);
+      setServiceId(entry.serviceId);
+      setMenuOpen(entry.overlay === "menu");
+      setNewBooking(entry.overlay === "booking");
+      setBell(entry.overlay === "bell");
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
   const user = data?.profiles.find((p) => p.id === userId);
   const manager = !!user && user.role !== "chef";
   const shownPage =
@@ -1405,7 +1451,7 @@ export default function ChefFlow({
               now={now}
               run={run}
               busy={busy}
-              onBack={() => setServiceId(null)}
+              onBack={back}
             />
           ) : (
             <>
@@ -1644,7 +1690,7 @@ export default function ChefFlow({
                       <tbody>
                         {done.map((b) => (
                           <tr key={b.id}>
-                            <td>
+                            <td data-label="Booking">
                               <button
                                 className="text-button"
                                 onClick={() => open(b.id)}
@@ -1653,16 +1699,16 @@ export default function ChefFlow({
                               </button>
                               <small>{date(b.actual_out!)}</small>
                             </td>
-                            <td>
+                            <td data-label="Check-in / out">
                               {time(b.actual_in)}
                               <small>{time(b.actual_out)}</small>
                             </td>
-                            <td>{money(b.base_amount)}</td>
-                            <td className="warning-text">
+                            <td data-label="Base fee">{money(b.base_amount)}</td>
+                            <td className="warning-text" data-label="Additional">
                               {money(b.overtime_amount)}
                               <small>{overtime(b).minutes} minutes</small>
                             </td>
-                            <td className="success">
+                            <td className="success" data-label="Total">
                               {money(b.base_amount + b.overtime_amount)}
                             </td>
                           </tr>
@@ -1765,7 +1811,7 @@ export default function ChefFlow({
         ))}
       </nav>
       {menuOpen && (
-        <Modal title={manager ? "Administration" : "Your workspace"} onClose={() => setMenuOpen(false)}>
+        <Modal title={manager ? "Administration" : "Your workspace"} onClose={back}>
           {!manager && <div className="menu-availability">{availabilityToggle}</div>}
           <div className="all-pages">
             {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}
@@ -1789,7 +1835,7 @@ export default function ChefFlow({
           data={data}
           busy={busy}
           run={run}
-          onClose={() => setNewBooking(false)}
+          onClose={back}
         />
       )}
       {toastElement}

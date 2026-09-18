@@ -370,3 +370,74 @@ for (const role of ["chef", "admin"] as const) {
     await page.screenshot({ path: `test-results/mobile-${role}.png`, fullPage: true });
   });
 }
+
+test("the browser back button retraces steps instead of leaving the app", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  await page.getByRole("button", { name: "Explore chef dashboard" }).click();
+  await expect(page.getByRole("heading", { name: "Hello, Arjun" })).toBeVisible();
+  const bottom = page.getByRole("navigation", { name: "Mobile navigation" });
+
+  await bottom.getByRole("button", { name: "Bookings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "My bookings" })).toBeVisible();
+  await bottom.getByRole("button", { name: "Earnings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Earnings", exact: true })).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "My bookings" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Hello, Arjun" })).toBeVisible();
+
+  // opening a booking, then back, returns to the list rather than closing the app
+  await bottom.getByRole("button", { name: "Bookings", exact: true }).click();
+  await page.locator(".booking-row").first().click();
+  await expect(page.getByRole("heading", { name: "Chef timings" })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "My bookings" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Chef timings" })).toHaveCount(0);
+
+  // the full-screen menu closes on back too
+  await page.getByRole("button", { name: "All pages" }).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "My bookings" })).toBeVisible();
+});
+
+test("admin tables stack into readable cards on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await page.getByRole("button", { name: "All pages" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Team & approvals", exact: true }).click();
+  const table = page.locator(".table-card table").first();
+  await expect(table).toBeVisible();
+  const layout = await table.evaluate((el) => {
+    const row = el.querySelector("tbody tr");
+    const cell = row?.querySelector("td");
+    const approve = [...el.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Approve");
+    return {
+      headerHidden: getComputedStyle(el.querySelector("thead")!).display === "none",
+      labelled: !!cell?.getAttribute("data-label"),
+      rowWidth: row!.getBoundingClientRect().width,
+      // a wrapped "Approve" label would be far taller than one line
+      approveHeight: approve ? approve.getBoundingClientRect().height : 0,
+      approveWidth: approve ? approve.getBoundingClientRect().width : 0,
+      scrolls: el.scrollWidth > el.clientWidth + 1,
+    };
+  });
+  expect(layout.headerHidden).toBeTruthy();
+  expect(layout.labelled).toBeTruthy();
+  expect(layout.scrolls, "table should not scroll sideways on a phone").toBeFalsy();
+  expect(layout.rowWidth).toBeLessThanOrEqual(390);
+  if (layout.approveHeight) {
+    expect(layout.approveHeight, "Approve label wraps onto several lines").toBeLessThan(48);
+    expect(layout.approveWidth).toBeGreaterThan(54);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.screenshot({ path: "test-results/mobile-team-cards.png", fullPage: true });
+});

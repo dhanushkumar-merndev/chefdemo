@@ -3351,3 +3351,77 @@ td {
     min-width: 0;
   }
 }
+
+/* Phones: tables read as stacked cards instead of a side-scrolling grid */
+@media (max-width: 670px) {
+  .table-card table,
+  .table-card thead,
+  .table-card tbody,
+  .table-card tr,
+  .table-card td {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+  .table-card table {
+    min-width: 0;
+  }
+  .table-card thead {
+    display: none;
+  }
+  .table-card tr {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 4px 14px 10px;
+    margin-bottom: 10px;
+    background: #fff;
+  }
+  .table-card td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 9px 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    text-align: right;
+  }
+  .table-card tr td:last-child {
+    border-bottom: 0;
+  }
+  .table-card td {
+    overflow-wrap: anywhere;
+  }
+  .table-card td::before {
+    content: attr(data-label);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    flex: 0 0 auto;
+  }
+  .table-card td:not([data-label]) {
+    justify-content: flex-end;
+  }
+  .table-card td > b,
+  .table-card td > small {
+    display: block;
+  }
+  .table-card td .action-row {
+    justify-content: flex-end;
+  }
+  .table-card .compact-select {
+    max-width: 150px;
+  }
+}
+/* Never break a short action label across lines */
+.action-row button,
+.status-pill,
+.compact-select {
+  white-space: nowrap;
+}
+.action-row {
+  gap: 8px;
+}
