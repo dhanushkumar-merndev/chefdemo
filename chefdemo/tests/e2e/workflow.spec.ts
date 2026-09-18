@@ -524,3 +524,24 @@ test("a manager sees no empty Administration group in the sidebar", async ({
   }
   await expect(page.locator(".sidebar").getByRole("button", { name: "Profile" })).toBeVisible();
 });
+
+test("the ChefFlow mark is served as the site icon", async ({ page, request }) => {
+  await page.goto("/");
+  const links = await page.evaluate(() =>
+    [...document.querySelectorAll("link[rel*='icon'], link[rel='manifest']")].map((l) => ({
+      rel: l.getAttribute("rel"),
+      href: (l as HTMLLinkElement).href,
+    })),
+  );
+  for (const rel of ["icon", "apple-touch-icon", "manifest"])
+    expect(links.some((l) => l.rel === rel), `missing ${rel}`).toBeTruthy();
+  for (const link of links) {
+    const res = await request.get(link.href);
+    expect(res.status(), `${link.rel} did not load`).toBe(200);
+    expect((await res.body()).length, `${link.rel} is empty`).toBeGreaterThan(200);
+  }
+  const manifest = await (await request.get(links.find((l) => l.rel === "manifest")!.href)).json();
+  expect(manifest.name).toBe("ChefFlow");
+  expect(manifest.theme_color).toBe("#f6c82c");
+  expect(manifest.icons.length).toBeGreaterThan(1);
+});
