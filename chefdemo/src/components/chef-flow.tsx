@@ -1295,11 +1295,11 @@ export default function ChefFlow({
               )}
             </button>
           ))}
-          {manager && (
+          {user.role === "admin" && (
             <>
               <div className="nav-label">ADMINISTRATION</div>
               {adminNav
-                .filter((n) => n.id === "staff" && user.role === "admin")
+                .filter((n) => n.id === "staff")
                 .map((n) => (
                   <button
                     key={n.id}
@@ -1776,12 +1776,6 @@ export default function ChefFlow({
           <footer className="workspace-footer">
             ChefFlow · Made for memorable meals{" "}
             <span>All service timings in IST</span>
-            <button
-              className="mobile-signout"
-              onClick={() => run(repo.logout, "Signed out")}
-            >
-              Sign out
-            </button>
           </footer>
         </main>
       </div>
@@ -1811,7 +1805,7 @@ export default function ChefFlow({
         ))}
       </nav>
       {menuOpen && (
-        <Modal title={manager ? "Administration" : "Your workspace"} onClose={back}>
+        <Modal title={user.role === "admin" ? "Administration" : "Your workspace"} onClose={back}>
           {!manager && <div className="menu-availability">{availabilityToggle}</div>}
           <div className="all-pages">
             {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}

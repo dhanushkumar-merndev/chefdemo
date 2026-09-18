@@ -1960,8 +1960,10 @@ td small {
   position: fixed;
   z-index: 99;
   left: 50%;
-  bottom: 28px;
-  transform: translate(-50%, 20px);
+  top: 18px;
+  bottom: auto;
+  height: auto;
+  transform: translate(-50%, -20px);
   min-width: min(340px, calc(100vw - 32px));
   padding: 13px 20px;
   background: #1f2e26;
@@ -2273,7 +2275,8 @@ td small {
     border-radius: 16px;
   }
   .toast {
-    bottom: 80px;
+    top: 12px;
+    bottom: auto;
   }
 }
 
@@ -2526,9 +2529,6 @@ input[type="checkbox"] {
 }
 .topbar {
   z-index: 30;
-}
-.mobile-signout {
-  display: none;
 }
 .flow-notifications {
   position: absolute;
@@ -3193,12 +3193,6 @@ td {
   }
   .workspace-footer span {
     display: none;
-  }
-  .mobile-signout {
-    display: inline;
-    color: #69786e;
-    background: none;
-    font-size: 10px;
   }
   .flow-modal {
     padding: 20px;

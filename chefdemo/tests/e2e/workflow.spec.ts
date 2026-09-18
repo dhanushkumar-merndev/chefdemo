@@ -441,3 +441,86 @@ test("admin tables stack into readable cards on a phone", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
   await page.screenshot({ path: "test-results/mobile-team-cards.png", fullPage: true });
 });
+
+test("messages appear at the top and no sign-out sits in the page footer", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+  await page.getByRole("button", { name: "Explore chef dashboard" }).click();
+  await page
+    .getByRole("navigation", { name: "Mobile navigation" })
+    .getByRole("button", { name: "Bookings", exact: true })
+    .click();
+  await page
+    .locator(".booking-row")
+    .filter({ hasText: "In progress" })
+    .first()
+    .click();
+  // trigger a message: completing without the four photos is refused
+  await page.getByRole("button", { name: "Check out & complete" }).click();
+  const toast = page.locator(".toast[role=alert]");
+  await expect(toast).toBeVisible();
+  const placement = await toast.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      top: r.top,
+      bottom: r.bottom,
+      box: r.height,
+      height: window.innerHeight,
+    };
+  });
+  // it must hug its text, not stretch down the screen
+  expect(placement.box, "message box is stretched").toBeLessThan(160);
+  expect(placement.top, "message should sit near the top").toBeLessThan(
+    placement.height / 3,
+  );
+  // the fixed bottom navigation must not cover it
+  const nav = await page
+    .locator(".mobile-nav")
+    .evaluate((el) => el.getBoundingClientRect().top);
+  expect(placement.bottom).toBeLessThan(nav);
+
+  await expect(page.locator(".workspace-footer")).toBeVisible();
+  await expect(
+    page.locator(".workspace-footer").getByRole("button", { name: /sign out/i }),
+  ).toHaveCount(0);
+  // signing out is still reachable from the menu
+  await page.getByRole("button", { name: "All pages" }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: /Sign out/i }),
+  ).toBeVisible();
+});
+
+test("a manager sees no empty Administration group in the sidebar", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await expect(page.getByRole("heading", { name: "Business overview" })).toBeVisible();
+  // an admin has one item under the heading
+  await expect(page.locator(".sidebar").getByText("ADMINISTRATION")).toBeVisible();
+  await expect(
+    page.locator(".sidebar").getByRole("button", { name: "Team & roles" }),
+  ).toBeVisible();
+
+  await page.evaluate(() => {
+    const key = "chefflow-prototype-v1";
+    const data = JSON.parse(localStorage.getItem(key)!);
+    for (const p of data.profiles) if (p.role === "admin") p.role = "manager";
+    localStorage.setItem(key, JSON.stringify(data));
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Business overview" })).toBeVisible();
+  await expect(page.locator(".sidebar").getByText("ADMINISTRATION")).toHaveCount(0);
+  await expect(
+    page.locator(".sidebar").getByRole("button", { name: "Team & roles" }),
+  ).toHaveCount(0);
+  // the other groups still label real items
+  for (const label of ["MAIN MENU", "ACCOUNT"]) {
+    const group = page.locator(".sidebar .nav-label", { hasText: label });
+    await expect(group).toBeVisible();
+  }
+  await expect(page.locator(".sidebar").getByRole("button", { name: "Profile" })).toBeVisible();
+});
