@@ -13,6 +13,7 @@ import {
   Home,
   IndianRupee,
   LogOut,
+  MapPin,
   Menu,
   Plus,
   RefreshCw,
@@ -27,6 +28,7 @@ import {
   Booking,
   Data,
   Profile,
+  ServiceArea,
   Status,
   date,
   dayKey,
@@ -46,7 +48,7 @@ import {
   exportBookings,
 } from "./admin";
 import ServiceDetail from "./service-detail";
-import { Brand, Empty, Field, Heading, Modal, Run } from "./ui";
+import { AreaFields, Brand, Empty, Field, Heading, Modal, Run } from "./ui";
 
 type Page =
   | "dashboard"
@@ -271,8 +273,15 @@ function BookingRow({
       <div className="booking-main">
         <h3>{b.customer}</h3>
         <p>
-          {b.service} · {b.guests} guests
+          <span className="booking-code">{b.code}</span> · {b.service} ·{" "}
+          {b.guests} guests
         </p>
+        {b.location && (
+          <p className="booking-time">
+            <MapPin size={12} />
+            {b.location}, {b.region}
+          </p>
+        )}
         <p className="booking-time">
           <Clock3 size={12} />
           {time(b.scheduled_start)} – {time(b.scheduled_end)} IST
@@ -696,15 +705,90 @@ function Calendar({
   );
 }
 
+function CompleteProfile({
+  user,
+  areas,
+  busy,
+  run,
+  toastElement,
+}: {
+  user: Profile;
+  areas: ServiceArea[];
+  busy: boolean;
+  run: Run;
+  toastElement: React.ReactNode;
+}) {
+  const [region, setRegion] = useState(user.region);
+  const [location, setLocation] = useState(user.location);
+  return (
+    <div className="loading-screen">
+      <ChefHat size={36} />
+      <h2>Complete your profile</h2>
+      <p>
+        Tell us where you work so we can assign bookings near you. You can
+        change this later in Profile.
+      </p>
+      <form
+        className="card form-card complete-profile"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(
+            () =>
+              repo.saveProfile({
+                name: user.name,
+                phone: user.phone,
+                cuisine: user.cuisine,
+                experience: user.experience,
+                online: user.online,
+                region,
+                location,
+              }),
+            "Location saved",
+          );
+        }}
+      >
+        <div className="form-grid">
+          <AreaFields
+            areas={areas}
+            region={region}
+            location={location}
+            onRegion={setRegion}
+            onLocation={setLocation}
+            required
+            regionLabel="Region you work in"
+            locationLabel="Location you work in"
+          />
+        </div>
+        <div className="save-row">
+          <button className="accept btn" disabled={busy || !location}>
+            Save & continue
+          </button>
+        </div>
+      </form>
+      <button
+        className="outline-btn"
+        disabled={busy}
+        onClick={() => run(repo.logout, "Signed out")}
+      >
+        Sign out
+      </button>
+      {toastElement}
+    </div>
+  );
+}
 function ProfilePage({
   user,
+  areas,
   busy,
   run,
 }: {
   user: Profile;
+  areas: ServiceArea[];
   busy: boolean;
   run: Run;
 }) {
+  const [region, setRegion] = useState(user.region);
+  const [location, setLocation] = useState(user.location);
   return (
     <>
       <Heading
@@ -739,6 +823,8 @@ function ProfilePage({
                   cuisine: user.role === "chef" ? String(f.get("cuisine")) : user.cuisine,
                   experience: user.role === "chef" ? Number(f.get("experience")) : user.experience,
                   online: user.online,
+                  region,
+                  location,
                 }),
               "Profile saved",
             );
@@ -779,6 +865,16 @@ function ProfilePage({
                 maxLength={120}
               />
             </Field>
+            <AreaFields
+              areas={areas}
+              region={region}
+              location={location}
+              onRegion={setRegion}
+              onLocation={setLocation}
+              required
+              regionLabel="Region you work in"
+              locationLabel="Location you work in"
+            />
             </>}<Field label="Account role">
               <input value={user.role} disabled readOnly />
             </Field>
@@ -921,6 +1017,9 @@ export default function ChefFlow({
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Status | "all">("all");
   const [search, setSearch] = useState("");
+  const [searchDate, setSearchDate] = useState("");
+  const [searchRegion, setSearchRegion] = useState("");
+  const [searchLocation, setSearchLocation] = useState("");
   const [newBooking, setNewBooking] = useState(false);
   const [bell, setBell] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -1081,6 +1180,29 @@ export default function ChefFlow({
       </div>
     );
   if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access ChefFlow." : "Please contact your administrator to review your registration."}</p><p>{user.email}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
+  if (user.role === "chef" && !user.location)
+    return (
+      <CompleteProfile
+        user={user}
+        areas={data.service_areas}
+        busy={busy}
+        run={run}
+        toastElement={toastElement}
+      />
+    );
+  const matchesFilters = (b: Booking) => {
+    const text = search.trim().toLowerCase();
+    return (
+      (filter === "all" || b.status === filter) &&
+      (!searchDate || dayKey(b.scheduled_start) === searchDate) &&
+      (!searchRegion || b.region === searchRegion) &&
+      (!searchLocation || b.location === searchLocation) &&
+      (!text ||
+        `${b.code} ${b.customer} ${b.service} ${b.address} ${b.region} ${b.location}`
+          .toLowerCase()
+          .includes(text))
+    );
+  };
   const availabilityToggle = !manager && (
     <button
       className={`online-toggle ${user.online ? "" : "offline"}`}
@@ -1094,6 +1216,8 @@ export default function ChefFlow({
             cuisine: user.cuisine,
             experience: user.experience,
             online: !user.online,
+            region: user.region,
+            location: user.location,
           }),
           user.online ? "You are now offline" : "You are now available",
         )
@@ -1340,21 +1464,85 @@ export default function ChefFlow({
                       </button>
                     ))}
                   </div>
-                  <input
-                    className="search-input"
-                    aria-label="Search bookings"
-                    placeholder="Search customer, service or location…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
+                  <div className="booking-filters">
+                    <input
+                      className="search-input"
+                      aria-label="Search bookings"
+                      placeholder="Search booking ID, customer, service or location…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <input
+                      className="compact-select"
+                      type="date"
+                      aria-label="Filter by date"
+                      value={searchDate}
+                      onChange={(e) => setSearchDate(e.target.value)}
+                    />
+                    <select
+                      className="compact-select"
+                      aria-label="Filter by region"
+                      value={searchRegion}
+                      onChange={(e) => {
+                        setSearchRegion(e.target.value);
+                        setSearchLocation("");
+                      }}
+                    >
+                      <option value="">All regions</option>
+                      {[
+                        ...new Set(
+                          data.service_areas
+                            .filter((a) => a.active)
+                            .map((a) => a.region),
+                        ),
+                      ]
+                        .sort()
+                        .map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      className="compact-select"
+                      aria-label="Filter by location"
+                      value={searchLocation}
+                      onChange={(e) => setSearchLocation(e.target.value)}
+                    >
+                      <option value="">All locations</option>
+                      {data.service_areas
+                        .filter(
+                          (a) =>
+                            a.active &&
+                            (!searchRegion || a.region === searchRegion),
+                        )
+                        .map((a) => a.name)
+                        .sort()
+                        .map((l) => (
+                          <option key={l} value={l}>
+                            {l}
+                          </option>
+                        ))}
+                    </select>
+                    {(search ||
+                      searchDate ||
+                      searchRegion ||
+                      searchLocation) && (
+                      <button
+                        className="text-button"
+                        onClick={() => {
+                          setSearch("");
+                          setSearchDate("");
+                          setSearchRegion("");
+                          setSearchLocation("");
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    )}
+                  </div>
                   {data.bookings
-                    .filter(
-                      (b) =>
-                        (filter === "all" || b.status === filter) &&
-                        `${b.customer} ${b.service} ${b.address}`
-                          .toLowerCase()
-                          .includes(search.toLowerCase()),
-                    )
+                    .filter(matchesFilters)
                     .sort((a, b) =>
                       a.scheduled_start.localeCompare(b.scheduled_start),
                     )
@@ -1378,13 +1566,7 @@ export default function ChefFlow({
                           )}
                       </div>
                     ))}
-                  {!data.bookings.some(
-                    (b) =>
-                      (filter === "all" || b.status === filter) &&
-                      `${b.customer} ${b.service} ${b.address}`
-                        .toLowerCase()
-                        .includes(search.toLowerCase()),
-                  ) && (
+                  {!data.bookings.some(matchesFilters) && (
                     <Empty
                       title="No matching bookings"
                       text="Try another filter or search."
@@ -1529,7 +1711,7 @@ export default function ChefFlow({
                 </>
               )}
               {shownPage === "profile" && (
-                <ProfilePage key={user.id} user={user} busy={busy} run={run} />
+                <ProfilePage key={user.id} user={user} areas={data.service_areas} busy={busy} run={run} />
               )}
               {shownPage === "support" && (
                 <Support data={data} manager={manager} busy={busy} run={run} />

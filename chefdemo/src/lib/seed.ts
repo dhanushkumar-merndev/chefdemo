@@ -1,8 +1,25 @@
-import { Booking, Data } from "./domain";
+import { Booking, Data, ServiceArea } from "./domain";
 
 export const demoChef = "10000000-0000-4000-8000-000000000001";
 export const demoAdmin = "10000000-0000-4000-8000-000000000002";
+const areaList: [string, string][] = [
+  ["Bengaluru", "Koramangala"],
+  ["Bengaluru", "Indiranagar"],
+  ["Bengaluru", "Whitefield"],
+  ["Bengaluru", "HSR Layout"],
+  ["Bengaluru", "Jayanagar"],
+  ["Chennai", "Adyar"],
+  ["Chennai", "Anna Nagar"],
+  ["Hyderabad", "Gachibowli"],
+  ["Mumbai", "Bandra"],
+];
 export function seedData(): Data {
+  const service_areas: ServiceArea[] = areaList.map(([region, name], i) => ({
+    id: `40000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+    region,
+    name,
+    active: true,
+  }));
   const now = Date.now();
   const iso = (minutes: number) =>
     new Date(now + minutes * 60000).toISOString();
@@ -30,12 +47,15 @@ export function seedData(): Data {
     amount: number,
   ): Booking => ({
     id: `30000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
+    code: `CF-${1000 + i}`,
     chef_id: demoChef,
     customer,
     service: i === 3 ? "Italian lunch" : "Private dinner",
     address:
       ["Koramangala", "Whitefield", "Indiranagar", "HSR Layout"][i % 4] +
       ", Bengaluru",
+    region: "Bengaluru",
+    location: ["Koramangala", "Whitefield", "Indiranagar", "HSR Layout"][i % 4],
     guests: i === 3 ? 8 : 12,
     scheduled_start: iso(mins),
     scheduled_end: iso(mins + 180),
@@ -66,6 +86,8 @@ export function seedData(): Data {
         cuisine: "North Indian & Mughlai",
         experience: 8,
         online: true,
+        region: "Bengaluru",
+        location: "Koramangala",
       },
       {
         id: demoAdmin,
@@ -76,6 +98,8 @@ export function seedData(): Data {
         cuisine: "",
         experience: 0,
         online: true,
+        region: "",
+        location: "",
       },
     ],
     dishes,
@@ -99,5 +123,6 @@ export function seedData(): Data {
     ],
     tickets: [],
     staff_access: [],
+    service_areas,
   };
 }

@@ -47,3 +47,4 @@ test-results/
 supabase/.temp/
 
 .next-demo/
+qa-reports/

@@ -105,6 +105,8 @@ test("admin creates staff, dishes and bookings and exports analytics", async ({
     .click();
   await page.getByLabel("Customer name").fill("Prototype Customer");
   await page.getByLabel("Service", { exact: true }).fill("Family lunch");
+  await page.getByLabel("Service region").selectOption("Bengaluru");
+  await page.getByLabel("Service location").selectOption("Koramangala");
   await page.getByRole("group", { name: "Assigned chef" }).getByRole("radio", { name: /Test Chef/ }).check();
   await page.getByLabel("Scheduled in (IST)").fill("2026-12-15T12:00");
   await page.getByLabel("Scheduled out (IST)").fill("2026-12-15T15:00");
@@ -172,6 +174,8 @@ for (const width of [320, 390, 768, 1440]) {
     const dialog=page.getByRole('dialog');
     const box=await dialog.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
+    await dialog.getByLabel('Service region').selectOption('Bengaluru');
+    await dialog.getByLabel('Service location').selectOption('Koramangala');
     await expect(dialog.getByRole('radio',{name:/Arjun Kapoor/})).toBeVisible();
     await dialog.getByRole('radio',{name:/Arjun Kapoor/}).check();
     await dialog.getByRole('button',{name:'Close dialog'}).click();
@@ -187,5 +191,182 @@ for (const width of [320, 390, 768, 1440]) {
       await fit();
     }
     await page.screenshot({path:`test-results/admin-responsive-${width}.png`,fullPage:true});
+  });
+}
+
+test("booking form groups chefs by location and records the service area", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Team & roles" }).click();
+  await page.getByRole("button", { name: "Add staff", exact: true }).click();
+  await page.getByLabel("Full name").fill("Chennai Chef");
+  await page.getByLabel("Email", { exact: true }).fill("chennai@chef.demo");
+  await page.getByRole("button", { name: "Add staff member", exact: true }).click();
+  const row = page.getByRole("row").filter({ has: page.getByRole("cell", { name: "Chennai Chef", exact: true }) });
+  await row.getByRole("button", { name: "Approve", exact: true }).click();
+
+  await page.locator(".sidebar").getByRole("button", { name: "Manage bookings" }).click();
+  await page.getByRole("button", { name: "Create booking", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Select a region and location to see the chefs who work there.")).toBeVisible();
+  await dialog.getByLabel("Service region").selectOption("Bengaluru");
+  await dialog.getByLabel("Service location").selectOption("Koramangala");
+  // Arjun Kapoor works in Koramangala, the new chef has no location yet.
+  const options = dialog.locator(".chef-picker-options");
+  await expect(options.getByText("In Koramangala")).toBeVisible();
+  await expect(options.getByText("Other areas")).toBeVisible();
+  const order = await options.locator("label b").allInnerTexts();
+  expect(order[0]).toBe("Arjun Kapoor");
+  await expect(options.locator("label").filter({ hasText: "Chennai Chef" })).toContainText("outside this area");
+
+  await dialog.getByLabel("Customer name").fill("Area Customer");
+  await dialog.getByLabel("Service", { exact: true }).fill("Location test dinner");
+  await dialog.getByRole("radio", { name: /Arjun Kapoor/ }).check();
+  await dialog.getByLabel("Scheduled in (IST)").fill("2027-02-11T12:00");
+  await dialog.getByLabel("Scheduled out (IST)").fill("2027-02-11T15:00");
+  await dialog.getByLabel("Kitchen address").fill("12 Test Road");
+  await dialog.getByRole("button", { name: "Create booking" }).click();
+  await expect(dialog).toBeHidden();
+  const created = page.locator(".booking-row").filter({ hasText: "Area Customer" });
+  await expect(created).toContainText("Koramangala, Bengaluru");
+  await expect(created).toContainText(/CF-\d{4}/);
+});
+
+test("bookings can be searched by booking code, date, region and location", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Manage bookings" }).click();
+  const rows = page.locator(".booking-row");
+  const total = await rows.count();
+  expect(total).toBeGreaterThan(1);
+
+  const firstCode = (await rows.first().locator(".booking-code").innerText()).trim();
+  await page.getByLabel("Search bookings").fill(firstCode);
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText(firstCode);
+
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await expect(rows).toHaveCount(total);
+
+  await page.getByLabel("Filter by location").selectOption("Whitefield");
+  const whitefield = await rows.count();
+  expect(whitefield).toBeGreaterThan(0);
+  for (const text of await rows.allInnerTexts()) expect(text).toContain("Whitefield");
+
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  await page.getByLabel("Filter by region").selectOption("Chennai");
+  await expect(page.getByText("No matching bookings")).toBeVisible();
+
+  await page.getByRole("button", { name: "Clear filters" }).click();
+  const day = (await rows.first().getAttribute("aria-label")) ?? "";
+  await page.getByLabel("Filter by date").fill("2099-01-01");
+  await expect(page.getByText("No matching bookings")).toBeVisible();
+  expect(day).not.toBe(null);
+});
+
+test("a chef without a location must set one before using the dashboard", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore chef dashboard" }).click();
+  await expect(page.getByRole("heading", { name: "Hello, Arjun" })).toBeVisible();
+  // Simulate a chef who registered before locations existed.
+  await page.evaluate(() => {
+    const key = "chefflow-prototype-v1";
+    const data = JSON.parse(localStorage.getItem(key)!);
+    for (const p of data.profiles) if (p.role === "chef") { p.region = ""; p.location = ""; }
+    localStorage.setItem(key, JSON.stringify(data));
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Complete your profile" })).toBeVisible();
+  const save = page.getByRole("button", { name: "Save & continue" });
+  await expect(save).toBeDisabled();
+  await page.getByLabel("Region you work in").selectOption("Bengaluru");
+  await page.getByLabel("Location you work in").selectOption("Indiranagar");
+  await save.click();
+  await expect(page.getByRole("heading", { name: "Hello, Arjun" })).toBeVisible();
+  await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
+  await expect(page.getByLabel("Location you work in")).toHaveValue("Indiranagar");
+});
+
+for (const role of ["chef", "admin"] as const) {
+  test(`every ${role} page fits a phone screen`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+    // the dev-only Next.js overlay button floats over the bottom navigation
+    await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+    await page
+      .getByRole("button", {
+        name: role === "chef" ? "Explore chef dashboard" : "Open admin panel",
+      })
+      .click();
+    const fits = async (label: string) => {
+      await page.waitForTimeout(400);
+      const r = await page.evaluate(() => ({
+        wide: document.documentElement.scrollWidth > window.innerWidth,
+        // the fixed bottom navigation must never cover the last interactive element
+        navTop:
+          document
+            .querySelector(".mobile-nav")
+            ?.getBoundingClientRect().top ?? 0,
+        height: window.innerHeight,
+        body: document.body.innerText.length,
+      }));
+      expect(r.wide, `${label} scrolls sideways at 390px`).toBeFalsy();
+      expect(r.navTop, `${label} has no bottom navigation`).toBeGreaterThan(0);
+      expect(r.navTop, `${label} navigation sits off screen`).toBeLessThan(
+        r.height,
+      );
+      expect(r.body, `${label} looks empty`).toBeGreaterThan(40);
+      await expect(
+        page.locator(".toast[role=alert]"),
+        `${label} shows an error`,
+      ).toHaveCount(0);
+    };
+    const bottom = page.getByRole("navigation", { name: "Mobile navigation" });
+    for (const label of await bottom.locator("button").allInnerTexts()) {
+      await bottom.getByRole("button", { name: label, exact: true }).click();
+      await fits(`${role} bottom-nav ${label}`);
+    }
+    await page.getByRole("button", { name: "All pages" }).click();
+    const dialog = page.getByRole("dialog");
+    const pages = await dialog.locator(".all-pages button").allInnerTexts();
+    await dialog.getByRole("button", { name: "Close dialog" }).click();
+    for (const label of pages) {
+      await page.getByRole("button", { name: "All pages" }).click();
+      await page
+        .getByRole("dialog")
+        .getByRole("button", { name: label, exact: true })
+        .click();
+      await fits(`${role} page ${label}`);
+    }
+    if (role === "admin") {
+      await page
+        .getByRole("navigation", { name: "Mobile navigation" })
+        .getByRole("button", { name: "Bookings", exact: true })
+        .click();
+      await page.getByRole("button", { name: "Create booking", exact: true }).first().click();
+      const form = page.getByRole("dialog");
+      const box = await form.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(390);
+      await form.getByLabel("Service region").selectOption("Bengaluru");
+      await form.getByLabel("Service location").selectOption("Koramangala");
+      await expect(form.getByText("In Koramangala")).toBeVisible();
+      await fits("admin booking form");
+      await form.getByRole("button", { name: "Close dialog" }).click();
+    } else {
+      await page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("button", { name: "Bookings" }).click();
+      await page.getByLabel("Search bookings").fill("CF-");
+      await fits("chef booking search");
+      await page.locator(".booking-row").first().click();
+      await expect(page.getByRole("heading", { name: "Chef timings" })).toBeVisible();
+      await fits("chef service detail");
+    }
+    await page.screenshot({ path: `test-results/mobile-${role}.png`, fullPage: true });
   });
 }

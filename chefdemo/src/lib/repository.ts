@@ -114,6 +114,7 @@ export async function loadData(): Promise<Data> {
     "reviews",
     "tickets",
     "staff_access",
+    "service_areas",
   ];
   const results = await Promise.all(
     tables.map((t) => supabase!.from(t).select("*")),
@@ -131,6 +132,7 @@ export async function loadData(): Promise<Data> {
     reviews: results[4].data,
     tickets: results[5].data,
     staff_access: results[6].data,
+    service_areas: results[7].data,
   } as unknown as Data;
 }
 export async function actOnBooking(
@@ -193,6 +195,7 @@ export async function createBooking(input: NewBooking) {
   data.bookings.push({
     ...input,
     id: crypto.randomUUID(),
+    code: `CF-${1000 + data.bookings.length + 1}`,
     status: "requested",
     actual_in: null,
     actual_out: null,
@@ -201,12 +204,18 @@ export async function createBooking(input: NewBooking) {
   saveLocal(data);
 }
 export async function saveProfile(
-  input: Pick<Profile, "name" | "phone" | "cuisine" | "experience" | "online">,
+  input: Pick<
+    Profile,
+    "name" | "phone" | "cuisine" | "experience" | "online" | "region" | "location"
+  >,
 ) {
+  const data = supabase ? null : localData();
+  const actorRole = data ? actor(data).role : null;
+  if (actorRole === "chef" && (!input.region.trim() || !input.location.trim()))
+    throw new Error("Select the region and location you work in.");
   if (supabase) return rpc("save_profile", { p_input: input });
-  const data = localData();
-  Object.assign(actor(data), input);
-  saveLocal(data);
+  Object.assign(actor(data!), input);
+  saveLocal(data!);
 }
 export async function saveDish(dish: Dish) {
   if (supabase) {
@@ -244,6 +253,8 @@ export async function authorizeStaff(name: string, email: string, role: Role) {
     cuisine: "",
     experience: 0,
     online: true,
+    region: "",
+    location: "",
   });
   saveLocal(data);
 }

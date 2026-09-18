@@ -182,6 +182,52 @@ test("Supabase migration enforces roles, booking workflow, photo evidence and se
     await db.query("select review_member($1,'rejected')",[chef]);
     await asUser(chef);
     assert.equal((await db.query("select * from bookings")).rows.length,0);
+
+    // Service areas: chef location is mandatory, bookings carry a location and a short code.
+    await db.exec("reset role");
+    await db.exec(await readFile(new URL("../supabase/migrations/202609180003_service_areas.sql", import.meta.url), "utf8"));
+    await asUser(admin);
+    await db.query("select review_member($1,'approved')",[chef]);
+    assert.match(
+      (await db.query<{code:string}>("select code from bookings order by code limit 1")).rows[0].code,
+      /^CF-\d{4}$/,
+      "existing bookings receive a short booking code",
+    );
+    await asUser(chef);
+    await assert.rejects(
+      db.query("select save_profile($1::jsonb)",[JSON.stringify({name:"Chef",phone:"",cuisine:"",experience:1,online:true,region:"",location:""})]),
+      /region and location/,
+      "a chef cannot save a profile without a location",
+    );
+    await assert.rejects(
+      db.query("select save_profile($1::jsonb)",[JSON.stringify({name:"Chef",phone:"",cuisine:"",experience:1,online:true,region:"Bengaluru",location:"Nowhere"})]),
+      /from the list/,
+      "locations outside the service-area list are rejected",
+    );
+    await db.query("select save_profile($1::jsonb)",[JSON.stringify({name:"Chef",phone:"",cuisine:"",experience:1,online:true,region:"Bengaluru",location:"Koramangala"})]);
+    assert.equal(
+      (await db.query<{location:string}>("select location from profiles where id=auth.uid()")).rows[0].location,
+      "Koramangala",
+    );
+    await asUser(admin);
+    const newBooking = (extra: Record<string, unknown>) =>
+      db.query("select create_booking($1::jsonb)",[JSON.stringify({
+        chef_id: chef, customer:"Area customer", service:"Dinner", address:"Bengaluru", guests:4,
+        scheduled_start:"2030-05-01T10:00:00Z", scheduled_end:"2030-05-01T12:00:00Z",
+        base_amount:1000, overtime_rate:300, dish_ids:[], ...extra,
+      })]);
+    await assert.rejects(newBooking({}),/region and location/,"a booking needs a service location");
+    await assert.rejects(newBooking({region:"Bengaluru",location:"Atlantis"}),/from the list/);
+    await newBooking({region:"Bengaluru",location:"Koramangala"});
+    const created = (await db.query<{code:string;location:string}>("select code,location from bookings where customer='Area customer'")).rows[0];
+    assert.equal(created.location,"Koramangala");
+    assert.match(created.code,/^CF-\d{4}$/);
+    await asUser(chef);
+    await assert.rejects(
+      db.query("select save_service_area('Bengaluru','Chef Town')"),
+      /Administrator/,
+      "only an administrator may edit the service-area list",
+    );
   } finally {
     await db.close();
   }

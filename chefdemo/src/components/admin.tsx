@@ -12,6 +12,7 @@ import {
 import {
   Data,
   Dish,
+  Profile,
   Role,
   Status,
   csvCell,
@@ -21,7 +22,7 @@ import {
   statusLabels,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
-import { Empty, Field, Heading, Modal, Run } from "./ui";
+import { AreaFields, Empty, Field, Heading, Modal, Run } from "./ui";
 
 export function exportBookings(data: Data) {
   const rows = [
@@ -547,6 +548,28 @@ export function NewBookingModal({
   busy: boolean;
   onClose: () => void;
 }) {
+  const [region, setRegion] = useState("");
+  const [location, setLocation] = useState("");
+  const chefs = data.profiles.filter(
+    (p) => p.role === "chef" && (!p.approval_status || p.approval_status === "approved"),
+  );
+  const nearby = chefs.filter((p) => p.location === location && location);
+  const others = chefs.filter((p) => !nearby.includes(p));
+  const chefOption = (p: Profile, outside: boolean) => (
+    <label className="chef-picker-option" key={p.id}>
+      <input type="radio" name="chef" value={p.id} required />
+      <span>
+        <b>{p.name}</b>
+        <small>{p.email}</small>
+        <small>
+          {p.location ? `${p.location}, ${p.region}` : "No location set"}
+          {outside ? " · outside this area" : ""}
+          {p.online ? " · Online" : " · Offline"}
+          {p.cuisine ? ` · ${p.cuisine}` : ""}
+        </small>
+      </span>
+    </label>
+  );
   return (
     <Modal title="Create booking" onClose={onClose}>
       <p className="small-copy muted">
@@ -566,6 +589,8 @@ export function NewBookingModal({
                   customer: get("customer"),
                   service: get("service"),
                   address: get("address"),
+                  region,
+                  location,
                   guests: Number(get("guests")),
                   scheduled_start: new Date(
                     get("start") + ":00+05:30",
@@ -596,16 +621,48 @@ export function NewBookingModal({
               maxLength={160}
             />
           </Field>
+          <AreaFields
+            areas={data.service_areas}
+            region={region}
+            location={location}
+            onRegion={setRegion}
+            onLocation={setLocation}
+            required
+            regionLabel="Service region"
+            locationLabel="Service location"
+          />
           <fieldset className="chef-picker">
             <legend>Assigned chef</legend>
             <div className="chef-picker-options">
-              {data.profiles.filter(p => p.role === "chef" && (!p.approval_status || p.approval_status === "approved")).map(p => (
-                <label className="chef-picker-option" key={p.id}>
-                  <input type="radio" name="chef" value={p.id} required />
-                  <span><b>{p.name}</b><small>{p.email}</small><small>{p.online ? "Online" : "Offline"}{p.cuisine ? ` · ${p.cuisine}` : ""}</small></span>
-                </label>
-              ))}
-              {!data.profiles.some(p => p.role === "chef" && (!p.approval_status || p.approval_status === "approved")) && <p className="muted small-copy">No approved chefs yet. Approve a chef in Team & roles before creating a booking.</p>}
+              {!location && (
+                <p className="muted small-copy">
+                  Select a region and location to see the chefs who work there.
+                </p>
+              )}
+              {location && nearby.length > 0 && (
+                <>
+                  <p className="picker-group">In {location}</p>
+                  {nearby.map((p) => chefOption(p, false))}
+                </>
+              )}
+              {location && nearby.length === 0 && (
+                <p className="muted small-copy">
+                  No chef works in {location} yet. You can still assign a chef
+                  from another area.
+                </p>
+              )}
+              {location && others.length > 0 && (
+                <>
+                  <p className="picker-group">Other areas</p>
+                  {others.map((p) => chefOption(p, true))}
+                </>
+              )}
+              {!chefs.length && (
+                <p className="muted small-copy">
+                  No approved chefs yet. Approve a chef in Team &amp; roles
+                  before creating a booking.
+                </p>
+              )}
             </div>
           </fieldset>
           <Field label="Guests">

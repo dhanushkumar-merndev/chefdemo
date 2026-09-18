@@ -3305,3 +3305,49 @@ td {
  .metric { padding:12px; }
  .metric-value { font-size:18px; }
 }
+
+/* Region, location and booking-code search */
+.booking-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.booking-filters .search-input {
+  flex: 1 1 260px;
+  margin: 0;
+  min-width: 0;
+}
+.booking-filters .compact-select {
+  flex: 0 1 auto;
+  min-width: 132px;
+}
+.booking-code {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: var(--ink);
+}
+.picker-group {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.complete-profile {
+  width: min(420px, 92vw);
+  margin: 18px 0 14px;
+  text-align: left;
+}
+.complete-profile .form-grid {
+  grid-template-columns: 1fr;
+}
+@media (max-width: 670px) {
+  .booking-filters .compact-select {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+}

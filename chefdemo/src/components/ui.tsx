@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { ChefHat, X } from "lucide-react";
+import { ServiceArea } from "@/lib/domain";
 
 export function Brand({ subtitle = "CHEF PARTNER" }: { subtitle?: string }) {
   return (
@@ -62,6 +63,72 @@ export function Field({
       <span>{label}</span>
       {children}
     </label>
+  );
+}
+export function AreaFields({
+  areas,
+  region,
+  location,
+  onRegion,
+  onLocation,
+  required,
+  regionLabel = "Region",
+  locationLabel = "Location",
+}: {
+  areas: ServiceArea[];
+  region: string;
+  location: string;
+  onRegion: (value: string) => void;
+  onLocation: (value: string) => void;
+  required?: boolean;
+  regionLabel?: string;
+  locationLabel?: string;
+}) {
+  const live = areas.filter((a) => a.active);
+  const regions = [...new Set(live.map((a) => a.region))].sort();
+  const locations = live
+    .filter((a) => a.region === region)
+    .map((a) => a.name)
+    .sort();
+  return (
+    <>
+      <Field label={regionLabel}>
+        <select
+          name="region"
+          value={region}
+          required={required}
+          onChange={(e) => {
+            onRegion(e.target.value);
+            onLocation("");
+          }}
+        >
+          <option value="">Select region</option>
+          {regions.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label={locationLabel}>
+        <select
+          name="location"
+          value={location}
+          required={required}
+          disabled={!region}
+          onChange={(e) => onLocation(e.target.value)}
+        >
+          <option value="">
+            {region ? "Select location" : "Select a region first"}
+          </option>
+          {locations.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+      </Field>
+    </>
   );
 }
 export function Modal({

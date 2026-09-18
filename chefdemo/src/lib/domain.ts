@@ -30,6 +30,8 @@ export interface Profile {
   cuisine: string;
   experience: number;
   online: boolean;
+  region: string;
+  location: string;
 }
 export interface Dish {
   id: string;
@@ -40,10 +42,13 @@ export interface Dish {
 }
 export interface Booking {
   id: string;
+  code: string;
   chef_id: string;
   customer: string;
   service: string;
   address: string;
+  region: string;
+  location: string;
   guests: number;
   scheduled_start: string;
   scheduled_end: string;
@@ -78,6 +83,12 @@ export interface Ticket {
   status: "open" | "resolved";
   created_at: string;
 }
+export interface ServiceArea {
+  id: string;
+  region: string;
+  name: string;
+  active: boolean;
+}
 export interface StaffAccess {
   id: string;
   email: string;
@@ -92,6 +103,7 @@ export interface Data {
   reviews: Review[];
   tickets: Ticket[];
   staff_access: StaffAccess[];
+  service_areas: ServiceArea[];
 }
 export type BookingAction =
   | "accept"
@@ -106,6 +118,8 @@ export type NewBooking = Pick<
   | "customer"
   | "service"
   | "address"
+  | "region"
+  | "location"
   | "guests"
   | "scheduled_start"
   | "scheduled_end"
@@ -158,6 +172,8 @@ export function validateBooking(b: NewBooking) {
     !b.chef_id
   )
     throw new Error("Customer, service, address and chef are required.");
+  if (!b.region.trim() || !b.location.trim())
+    throw new Error("Select the region and location of this service.");
   if (
     !Number.isFinite(Date.parse(b.scheduled_start)) ||
     !Number.isFinite(Date.parse(b.scheduled_end)) ||
