@@ -870,11 +870,13 @@ function ProfilePage({
 function Support({
   data,
   manager,
+  canRaiseTicket,
   run,
   busy,
 }: {
   data: Data;
   manager: boolean;
+  canRaiseTicket: boolean;
   run: Run;
   busy: boolean;
 }) {
@@ -884,8 +886,8 @@ function Support({
         title={manager ? "Support tickets" : "Support & help"}
         subtitle="Report an issue and follow its progress."
       />
-      <div className="content-grid">
-        <form
+      <div className={`content-grid ${canRaiseTicket ? "" : "support-admin-grid"}`}>
+        {canRaiseTicket && <form
           className="card form-card"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -916,7 +918,7 @@ function Support({
           <button className="accept btn" disabled={busy}>
             Submit ticket
           </button>
-        </form>
+        </form>}
         <article className="card section-card">
           <h2>Quick answers</h2>
           {[
@@ -1734,7 +1736,7 @@ export default function ChefFlow({
                 <ProfilePage key={user.id} user={user} areas={data.service_areas} busy={busy} run={run} />
               )}
               {shownPage === "support" && (
-                <Support data={data} manager={manager} busy={busy} run={run} />
+                <Support data={data} manager={manager} canRaiseTicket={user.role !== "admin"} busy={busy} run={run} />
               )}
               {shownPage === "dishes" && (
                 <Dishes data={data} busy={busy} run={run} editable={manager} />

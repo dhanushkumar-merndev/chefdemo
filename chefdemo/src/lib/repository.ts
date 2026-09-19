@@ -363,7 +363,8 @@ export async function createTicket(subject: string, message: string) {
     return;
   }
   const data = localData();
-  actor(data);
+  if (actor(data).role === "admin")
+    throw new Error("Administrators cannot raise support tickets.");
   data.tickets.push(ticket);
   saveLocal(data);
 }

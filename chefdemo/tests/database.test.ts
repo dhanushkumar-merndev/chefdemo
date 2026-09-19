@@ -168,6 +168,7 @@ test("Supabase migration enforces roles, booking workflow, photo evidence and se
       "manager",
     );
     await db.exec(await readFile(new URL("../supabase/migrations/202609080002_member_approval.sql", import.meta.url), "utf8"));
+    await db.exec(await readFile(new URL("../supabase/migrations/202609190001_admin_cannot_create_tickets.sql", import.meta.url), "utf8"));
     await asUser(chef);
     assert.equal((await db.query("select * from dishes")).rows.length,0);
     assert.equal((await db.query("select * from bookings")).rows.length,0);
@@ -176,6 +177,13 @@ test("Supabase migration enforces roles, booking workflow, photo evidence and se
     await assert.rejects(db.query("update profiles set approval_status='approved' where id=auth.uid()"),/permission denied/);
     await asUser(admin);
     await db.query("select review_member($1,'approved')",[chef]);
+    await assert.rejects(
+      db.query(
+        "insert into tickets(user_id,subject,message,status) values(auth.uid(),'Admin ticket','This must be rejected','open')",
+      ),
+      /row-level security/,
+      "an administrator cannot raise a support ticket",
+    );
     await asUser(chef);
     assert.ok((await db.query("select * from dishes")).rows.length>0);
     await asUser(admin);

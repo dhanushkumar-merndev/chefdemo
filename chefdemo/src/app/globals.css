@@ -873,6 +873,9 @@ h1 {
   grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.8fr);
   gap: 22px;
 }
+.support-admin-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
 .card {
   background: #fff;
   border: 1px solid var(--line);
