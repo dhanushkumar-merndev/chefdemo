@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ChefFlow | Chef Partner",
+  title: "Khana Banao | Chef Login",
   description:
     "Your kitchen. Your schedule. Your growth. Manage chef services, attendance, menus and kitchen updates.",
 };

@@ -265,7 +265,7 @@ export function Staff({
     <>
       <Heading
         title="Team & roles"
-        subtitle="Manage who can access ChefFlow and what they can do."
+        subtitle="Manage who can access Khana Banao and what they can do."
       >
         <button className="accept btn" onClick={() => setOpen(true)}>
           <Plus size={15} /> Add staff

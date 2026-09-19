@@ -90,34 +90,37 @@ button {
 }
 .brand {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
   padding: 0 10px 29px;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.7px;
 }
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  background: var(--yellow);
-  border-radius: 11px 11px 11px 3px;
-  display: grid;
-  place-items: center;
-  box-shadow: inset -4px -4px 0 rgba(190, 142, 0, 0.14);
-}
-.brand-mark svg {
-  width: 19px;
-  height: 19px;
-  stroke-width: 2;
+.brand-logo {
+  display: block;
+  width: min(184px, 100%);
+  height: auto;
 }
 .brand small {
   display: block;
-  margin-top: 1px;
+  margin: 0;
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 1.4px;
   font-weight: 700;
+}
+.sidebar .brand {
+  margin: -8px -4px 20px;
+  padding: 14px 10px 17px;
+  background: linear-gradient(135deg, #fffaf2, #f4f7f4);
+  border: 1px solid #ece8df;
+  border-radius: 16px;
+}
+.sidebar .brand-logo {
+  width: min(196px, 100%);
+}
+.sidebar .brand small {
+  color: #9a3d38;
+  letter-spacing: 1.8px;
 }
 .nav-label {
   color: #a0a8a1;
@@ -200,10 +203,10 @@ button {
   font-weight: 500;
 }
 .main {
-  max-width: 1440px;
+  max-width: none;
   width: 100%;
-  margin: auto;
-  padding: 26px 40px 48px;
+  margin: 0;
+  padding: clamp(28px, 2.5vw, 48px) clamp(32px, 4vw, 76px) 56px;
   position: relative;
 }
 .topbar {
@@ -1736,92 +1739,54 @@ td small {
   position: fixed;
   z-index: 70;
   inset: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  background: #fff;
-}
-.login-art {
-  position: relative;
-  overflow: hidden;
-  padding: 56px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  color: #fff;
-  background: #243b31;
-}
-.login-art:before,
-.login-art:after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  border: 50px solid rgba(255, 255, 255, 0.055);
-}
-.login-art:before {
-  width: 390px;
-  height: 390px;
-  right: -150px;
-  top: -120px;
-}
-.login-art:after {
-  width: 290px;
-  height: 290px;
-  left: -160px;
-  bottom: -150px;
-}
-.login-art .brand {
-  position: relative;
-  padding: 0;
-  color: #fff;
-}
-.login-copy {
-  position: relative;
-  max-width: 460px;
-}
-.login-copy h1 {
-  font-size: 46px;
-  line-height: 1.06;
-}
-.login-copy p {
-  max-width: 340px;
-  color: #c8d7ce;
-  line-height: 1.55;
-  font-size: 14px;
-}
-.login-steps {
-  position: relative;
-  display: flex;
-  gap: 15px;
-  color: #c4d2ca;
-  font-size: 11px;
-}
-.login-steps b {
-  display: block;
-  color: #f5cc33;
-  margin-bottom: 4px;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(224, 82, 71, 0.1) 0 110px, transparent 111px),
+    radial-gradient(circle at 92% 90%, rgba(18, 142, 222, 0.1) 0 150px, transparent 151px),
+    #f7f4ee;
 }
 .login-form-area {
   display: grid;
   place-items: center;
-  padding: 30px;
-  background: #fbfbf8;
+  min-height: 100%;
+  padding: 36px 20px;
 }
 .login-box {
-  width: min(390px, 100%);
+  width: min(460px, 100%);
+  padding: 42px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #eadfce;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(44, 52, 40, 0.12);
 }
 .login-box .brand {
-  display: none;
+  align-items: center;
+  padding: 0 0 25px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid #eee5d8;
+}
+.login-box .brand-logo {
+  width: min(270px, 100%);
+}
+.login-box .brand small {
+  color: #b23f3b;
+  font-size: 11px;
+  letter-spacing: 2px;
 }
 .login-box h2 {
   margin: 0;
   font-family: "Playfair Display";
-  font-size: 31px;
+  font-size: 34px;
+  line-height: 1.1;
+  text-align: center;
 }
 .login-box > p {
-  margin: 9px 0 26px;
+  max-width: 310px;
+  margin: 10px auto 28px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+  text-align: center;
 }
 .phone-field {
   display: flex;
@@ -2227,41 +2192,12 @@ td small {
   .support-option small {
     margin-top: 3px;
   }
-  .login-screen {
-    display: block;
-    overflow: auto;
-  }
-  .login-art {
-    min-height: 230px;
-    padding: 25px;
-  }
-  .login-art .brand {
-    padding: 0;
-  }
-  .login-copy h1 {
-    margin-top: 25px;
-    font-size: 31px;
-  }
-  .login-copy p,
-  .login-steps {
-    display: none;
-  }
   .login-form-area {
-    min-height: calc(100vh - 230px);
-    padding: 32px 22px;
-    place-items: start center;
-  }
-  .login-box .brand {
-    display: flex;
-    margin-bottom: 35px;
-  }
-  .login-form-area .brand-mark {
-    width: 29px;
-    height: 29px;
-    font-size: 15px;
+    min-height: 100%;
+    padding: 24px 16px;
   }
   .login-box h2 {
-    font-size: 27px;
+    font-size: 30px;
   }
 
   /* Mobile notification dropdown placement */
@@ -2419,9 +2355,6 @@ h3 {
   width: 100%;
   margin-top: 12px;
   padding: 13px;
-}
-.login-art .brand small {
-  color: #c6d2cc;
 }
 .login-note {
   line-height: 1.8;

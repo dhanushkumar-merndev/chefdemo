@@ -86,40 +86,14 @@ function Login({
   const [busy, setBusy] = useState(false);
   return (
     <section className="login-screen">
-      <div className="login-art">
-        <Brand />
-        <div className="login-copy">
-          <h1>
-            Your kitchen.
-            <br />
-            Your schedule.
-            <br />
-            Your growth.
-          </h1>
-          <p>
-            Create memorable dining experiences, with every detail taken care
-            of.
-          </p>
-        </div>
-        <div className="login-steps">
-          <div>
-            <b>01</b>Plan your menu
-          </div>
-          <div>
-            <b>02</b>Make it memorable
-          </div>
-          <div>
-            <b>03</b>Grow your business
-          </div>
-        </div>
-      </div>
       <div className="login-form-area">
         <div className="login-box">
-          <h2>{signup ? "Join ChefFlow" : "Welcome, Chef!"}</h2>
+          <Brand subtitle="Chef Login" />
+          <h2>{signup ? "Create your account" : "Welcome back"}</h2>
           <p>
             {repo.isDemo
               ? "Explore your chef workspace or manage the team from the admin panel."
-              : "Sign in to your ChefFlow workspace."}
+              : "Sign in to manage your kitchen and bookings."}
           </p>
           {repo.isDemo ? (
             <>
@@ -806,7 +780,7 @@ function ProfilePage({
           </div>
           <h2>{user.name}</h2>
           <p>
-            {user.role} · {user.cuisine || "ChefFlow team"}
+            {user.role} · {user.cuisine || "Khana Banao team"}
           </p>
           <div className="verified-block">{user.email}</div>
         </article>
@@ -1191,7 +1165,7 @@ export default function ChefFlow({
     return (
       <div className="loading-screen">
         <ChefHat size={35} />
-        <h2>Couldn’t load ChefFlow</h2>
+        <h2>Couldn’t load Khana Banao</h2>
         <p className="error-text">{error}</p>
         <button className="accept btn" onClick={reload}>
           Try again
@@ -1225,7 +1199,7 @@ export default function ChefFlow({
         </button>
       </div>
     );
-  if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access ChefFlow." : "Please contact your administrator to review your registration."}</p><p>{user.email}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
+  if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access Khana Banao." : "Please contact your administrator to review your registration."}</p><p>{user.email}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
   if (user.role === "chef" && !user.location)
     return (
       <CompleteProfile
@@ -1278,7 +1252,7 @@ export default function ChefFlow({
     <>
       <div className="app">
         <aside className="sidebar">
-          <Brand subtitle={manager ? "TEAM WORKSPACE" : "CHEF PARTNER"} />
+          <Brand subtitle="Chef Login" />
           <div className="nav-label">MAIN MENU</div>
           {(manager ? [{ id: "analytics", label: "Business overview", icon: BarChart3 }, { ...nav[1], label: "Manage bookings" }, { ...nav[2], label: "Service revenue" }, nav[4]] as const : nav.slice(0, 5)).map((n) => (
             <button
@@ -1339,7 +1313,7 @@ export default function ChefFlow({
               <div>
                 {user.name}
                 <span>
-                  {user.role} · {repo.isDemo ? "Demo workspace" : "ChefFlow"}
+                  {user.role} · {repo.isDemo ? "Demo workspace" : "Khana Banao"}
                 </span>
               </div>
             </div>
@@ -1356,7 +1330,7 @@ export default function ChefFlow({
         <main className="main">
           <header className="topbar">
             <div className="crumb">
-              ChefFlow /{" "}
+              Khana Banao /{" "}
               <b>
                 {[...nav, ...adminNav].find((n) => n.id === shownPage)?.label ||
                   "Calendar"}
@@ -1774,7 +1748,7 @@ export default function ChefFlow({
             </>
           )}
           <footer className="workspace-footer">
-            ChefFlow · Made for memorable meals{" "}
+            Khana Banao · Made for memorable meals{" "}
             <span>All service timings in IST</span>
           </footer>
         </main>

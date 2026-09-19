@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "ChefFlow",
-    short_name: "ChefFlow",
+    name: "Khana Banao",
+    short_name: "Khana Banao",
     description:
       "Manage chef services, attendance, menus and kitchen updates.",
     start_url: "/",

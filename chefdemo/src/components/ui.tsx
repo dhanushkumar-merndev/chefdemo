@@ -1,17 +1,21 @@
 "use client";
 import { useEffect, useRef } from "react";
+import Image from "next/image";
 import { ChefHat, X } from "lucide-react";
 import { ServiceArea } from "@/lib/domain";
 
-export function Brand({ subtitle = "CHEF PARTNER" }: { subtitle?: string }) {
+export function Brand({ subtitle = "Chef Login" }: { subtitle?: string }) {
   return (
     <div className="brand">
-      <div className="brand-mark">
-        <ChefHat />
-      </div>
-      <div>
-        ChefFlow<small>{subtitle}</small>
-      </div>
+      <Image
+        className="brand-logo"
+        src="/khana-banao-logo.png"
+        alt="Khana Banao"
+        width={1260}
+        height={427}
+        priority
+      />
+      <small>{subtitle}</small>
     </div>
   );
 }
