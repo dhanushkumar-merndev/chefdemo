@@ -11,7 +11,8 @@
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "dev:demo": "node scripts/dev-demo.mjs",
-    "admin:grant": "node scripts/admin-grant.mjs"
+    "admin:grant": "node scripts/admin-grant.mjs",
+    "test:e2e:headed": "SLOWMO=150 playwright test --headed"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

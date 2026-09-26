@@ -525,7 +525,7 @@ test("a manager sees no empty Administration group in the sidebar", async ({
   await expect(page.locator(".sidebar").getByRole("button", { name: "Profile" })).toBeVisible();
 });
 
-test("the ChefFlow mark is served as the site icon", async ({ page, request }) => {
+test("the Khana Banao mark is served as the site icon", async ({ page, request }) => {
   await page.goto("/");
   const links = await page.evaluate(() =>
     [...document.querySelectorAll("link[rel*='icon'], link[rel='manifest']")].map((l) => ({
@@ -541,7 +541,7 @@ test("the ChefFlow mark is served as the site icon", async ({ page, request }) =
     expect((await res.body()).length, `${link.rel} is empty`).toBeGreaterThan(200);
   }
   const manifest = await (await request.get(links.find((l) => l.rel === "manifest")!.href)).json();
-  expect(manifest.name).toBe("ChefFlow");
+  expect(manifest.name).toBe("Khana Banao");
   expect(manifest.theme_color).toBe("#f6c82c");
   expect(manifest.icons.length).toBeGreaterThan(1);
 });
