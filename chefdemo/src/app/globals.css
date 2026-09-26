@@ -3355,3 +3355,89 @@ td {
 .action-row {
   gap: 8px;
 }
+.login-method {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 22px;
+  background: #f3efe6;
+  border-radius: 10px;
+}
+.login-method button {
+  padding: 9px;
+  color: var(--muted);
+  background: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.login-method button.active {
+  color: var(--ink);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(44, 52, 40, 0.12);
+}
+.sms-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sms-actions .back-login:disabled {
+  color: var(--muted);
+  cursor: default;
+  transform: none;
+}
+.field .phone-field input {
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  padding: 12px 11px;
+  font-size: 13px;
+}
+.phone-field:focus-within {
+  border-color: var(--yellow-deep);
+}
+.profile-side {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+  min-width: 0;
+}
+.signin-method {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.signin-method b {
+  font-size: 12px;
+}
+.signin-method p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.signin-method .outline-btn {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  font-size: 11px;
+}
+.signin-otp {
+  padding: 4px 0 14px;
+}
+.otp-label {
+  margin: 0 0 10px;
+  color: #6e7971;
+  font-size: 11px;
+  font-weight: 600;
+}
+.otp-row {
+  margin-bottom: 22px;
+}
+.otp-row input:focus {
+  border-color: var(--yellow-deep);
+}

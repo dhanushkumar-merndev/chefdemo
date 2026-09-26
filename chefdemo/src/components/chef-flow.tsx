@@ -30,6 +30,7 @@ import {
   Profile,
   ServiceArea,
   Status,
+  contactOf,
   date,
   dayKey,
   money,
@@ -39,6 +40,7 @@ import {
 } from "@/lib/domain";
 import { supabase } from "@/lib/supabase";
 import * as repo from "@/lib/repository";
+import { maskMobile, normalizeMobile } from "@/lib/phone";
 import {
   Analytics,
   Dishes,
@@ -75,6 +77,200 @@ const adminNav = [
   { id: "staff", label: "Team & roles", icon: Users },
 ] as const;
 
+const OTP_LENGTH = 6; // MSG91 widget setting "OTP Length"
+
+/** One box per digit. Typing moves forward, Backspace moves back, and a
+ *  pasted or autofilled code fills every box; a full code submits the form. */
+function OtpBoxes({ disabled }: { disabled: boolean }) {
+  const [digits, setDigits] = useState<string[]>(() => Array(OTP_LENGTH).fill(""));
+  const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  const code = digits.join("");
+  useEffect(() => {
+    // After render, so the hidden field already holds the full code.
+    if (code.length === OTP_LENGTH) boxes.current[0]?.form?.requestSubmit();
+  }, [code]);
+  const fill = (from: number, text: string) => {
+    const incoming = text.replace(/\D/g, "").slice(0, OTP_LENGTH - from).split("");
+    if (!incoming.length) return;
+    const next = [...digits];
+    incoming.forEach((d, i) => (next[from + i] = d));
+    setDigits(next);
+    const last = Math.min(from + incoming.length, OTP_LENGTH - 1);
+    boxes.current[last]?.focus();
+  };
+  return (
+    <div className="otp-row">
+      <input type="hidden" name="otp" value={code} />
+      {digits.map((d, i) => (
+        <input
+          key={i}
+          ref={(el) => {
+            boxes.current[i] = el;
+          }}
+          value={d}
+          disabled={disabled}
+          inputMode="numeric"
+          autoComplete={i === 0 ? "one-time-code" : "off"}
+          aria-label={`Digit ${i + 1} of ${OTP_LENGTH}`}
+          autoFocus={i === 0}
+          onChange={(e) => {
+            if (e.target.value === "") {
+              const next = [...digits];
+              next[i] = "";
+              setDigits(next);
+            } else fill(i, e.target.value.replace(d, "") || e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" && !d && i > 0) {
+              const next = [...digits];
+              next[i - 1] = "";
+              setDigits(next);
+              boxes.current[i - 1]?.focus();
+            }
+          }}
+          onPaste={(e) => {
+            e.preventDefault();
+            fill(i, e.clipboardData.getData("text"));
+          }}
+          onFocus={(e) => e.target.select()}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Mobile + OTP form: signs in ("login"), creates an account ("signup"), or
+ *  verifies a mobile for the signed-in member ("link"). */
+function MobileOtp({
+  intent,
+  onDone,
+  notify,
+  initialPhone = "",
+  submitLabel = "Verify & sign in",
+}: {
+  intent: repo.SmsIntent;
+  onDone: () => Promise<unknown>;
+  notify: (message: string, error?: boolean) => void;
+  initialPhone?: string;
+  submitLabel?: string;
+}) {
+  const [mobile, setMobile] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [reqId, setReqId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+  useEffect(() => {
+    if (resendIn <= 0) return;
+    const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [resendIn]);
+  const attempt = async (work: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await work();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "SMS verification failed", true);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const send = (number: string, again = false) =>
+    attempt(async () => {
+      const sent = await repo.smsSendOtp(number, intent);
+      setMobile(number);
+      setReqId(sent.reqId);
+      setResendIn(sent.resendAfter);
+      notify(`OTP ${again ? "sent again" : "sent"} to ${maskMobile(number)}`);
+    });
+
+  // Keys make React build fresh fields for each step; otherwise the OTP box
+  // reuses the name box's element and keeps what was typed there.
+  if (!mobile)
+    return (
+      <form
+        key="mobile-step"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          const number = normalizeMobile(String(f.get("phone")));
+          if (!number)
+            return notify("Enter a valid 10-digit mobile number.", true);
+          if (intent === "signup") setName(String(f.get("name")).trim());
+          void send(number);
+        }}
+      >
+        <div className="login-fields">
+          {intent === "signup" && (
+            <Field label="Full name">
+              <input name="name" required maxLength={120} autoComplete="name" />
+            </Field>
+          )}
+          <Field label="Mobile number">
+            <div className="phone-field">
+              <span>+91</span>
+              <input
+                name="phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                placeholder="98765 43210"
+                defaultValue={initialPhone.replace(/^\+?91(?=\d{10}$)/, "")}
+                maxLength={14}
+                required
+              />
+            </div>
+          </Field>
+        </div>
+        <button className="primary-btn" disabled={busy}>
+          {busy ? "Please wait…" : "Send OTP"}
+        </button>
+      </form>
+    );
+  return (
+    <form
+      key={`code-step-${reqId}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        const code = String(new FormData(e.currentTarget).get("otp")).trim();
+        if (busy) return;
+        if (code.length !== OTP_LENGTH)
+          return notify(`Enter the ${OTP_LENGTH}-digit code from the SMS.`, true);
+        void attempt(async () => {
+          await repo.smsVerifyOtp(mobile, reqId, code, { intent, name });
+          await onDone();
+        });
+      }}
+    >
+      <p className="otp-label">Enter the {OTP_LENGTH}-digit code sent to {maskMobile(mobile)}</p>
+      <OtpBoxes disabled={busy} />
+      <button className="primary-btn" disabled={busy}>
+        {busy ? "Please wait…" : submitLabel}
+      </button>
+      <div className="sms-actions">
+        <button
+          type="button"
+          className="back-login"
+          disabled={busy}
+          onClick={() => {
+            setMobile(null);
+            setReqId("");
+          }}
+        >
+          Change number
+        </button>
+        <button
+          type="button"
+          className="back-login"
+          disabled={busy || resendIn > 0}
+          onClick={() => void send(mobile, true)}
+        >
+          {resendIn > 0 ? `Resend OTP in ${resendIn}s` : "Resend OTP"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function Login({
   onLogin,
   notify,
@@ -84,6 +280,8 @@ function Login({
 }) {
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<"email" | "sms">("email");
+  const showSms = repo.smsLoginEnabled;
   return (
     <section className="login-screen">
       <div className="login-form-area">
@@ -122,6 +320,49 @@ function Login({
               </p>
             </>
           ) : (
+            <>
+            {showSms && (
+              <div className="login-method" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === "email"}
+                  className={method === "email" ? "active" : ""}
+                  onClick={() => setMethod("email")}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={method === "sms"}
+                  className={method === "sms" ? "active" : ""}
+                  onClick={() => setMethod("sms")}
+                >
+                  Mobile OTP
+                </button>
+              </div>
+            )}
+            {showSms && method === "sms" ? (
+              <>
+                <MobileOtp
+                  key={signup ? "signup" : "login"}
+                  intent={signup ? "signup" : "login"}
+                  submitLabel={signup ? "Verify & create account" : "Verify & sign in"}
+                  onDone={onLogin}
+                  notify={notify}
+                />
+                <button
+                  type="button"
+                  className="back-login"
+                  onClick={() => setSignup(!signup)}
+                >
+                  {signup
+                    ? "Already registered? Sign in"
+                    : "New staff member? Create account"}
+                </button>
+              </>
+            ) : (
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
@@ -199,6 +440,8 @@ function Login({
                   : "New staff member? Create account"}
               </button>
             </form>
+            )}
+            </>
           )}
         </div>
       </div>
@@ -750,16 +993,131 @@ function CompleteProfile({
     </div>
   );
 }
+/** Email and mobile are two ways into one account; each must be verified. */
+function SignInMethods({
+  user,
+  busy,
+  run,
+  notify,
+}: {
+  user: Profile;
+  busy: boolean;
+  run: Run;
+  notify: (message: string, error?: boolean) => void;
+}) {
+  const [verifying, setVerifying] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user.email) repo.pendingEmail().then(setPending).catch(() => {});
+  }, [user.email]);
+  return (
+    <article className="card form-card signin-methods">
+      <h2>Sign-in methods</h2>
+      <div className="signin-method">
+        <div>
+          <b>Mobile OTP</b>
+          <p>
+            {user.phone_verified
+              ? `${user.phone} · verified`
+              : "Verify your mobile to also sign in with an OTP."}
+          </p>
+        </div>
+        {!verifying && (
+          <button
+            type="button"
+            className="outline-btn"
+            onClick={() => setVerifying(true)}
+          >
+            {user.phone_verified ? "Change" : "Verify mobile"}
+          </button>
+        )}
+      </div>
+      {verifying && (
+        <div className="signin-otp">
+          <MobileOtp
+            intent="link"
+            initialPhone={user.phone_verified ? "" : user.phone}
+            submitLabel="Verify mobile"
+            notify={notify}
+            onDone={async () => {
+              setVerifying(false);
+              await run(async () => {}, "Mobile verified. You can now sign in with an OTP.");
+            }}
+          />
+          <button
+            type="button"
+            className="back-login"
+            onClick={() => setVerifying(false)}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      <div className="signin-method">
+        <div>
+          <b>Email &amp; password</b>
+          <p>
+            {user.email ??
+              (pending
+                ? `Confirmation sent to ${pending}. Open the link in that email to finish.`
+                : "Add an email to also sign in with a password.")}
+          </p>
+        </div>
+      </div>
+      {!user.email && (
+        <form
+          className="signin-otp"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const f = new FormData(form);
+            const email = String(f.get("email"));
+            if (
+              await run(
+                () => repo.addEmailLogin(email, String(f.get("password"))),
+                `Confirmation sent to ${email}. Open the link to finish.`,
+              )
+            ) {
+              setPending(email.trim().toLowerCase());
+              form.reset();
+            }
+          }}
+        >
+          <div className="login-fields">
+            <Field label="Email">
+              <input type="email" name="email" required autoComplete="email" />
+            </Field>
+            <Field label="Password">
+              <input
+                type="password"
+                name="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </Field>
+          </div>
+          <button className="accept btn" disabled={busy}>
+            Add email login
+          </button>
+        </form>
+      )}
+    </article>
+  );
+}
+
 function ProfilePage({
   user,
   areas,
   busy,
   run,
+  notify,
 }: {
   user: Profile;
   areas: ServiceArea[];
   busy: boolean;
   run: Run;
+  notify: (message: string, error?: boolean) => void;
 }) {
   const [region, setRegion] = useState(user.region);
   const [location, setLocation] = useState(user.location);
@@ -770,6 +1128,7 @@ function ProfilePage({
         subtitle={user.role === "chef" ? "Keep your professional details accurate and current." : "Manage your administrator contact and account details."}
       />
       <div className="profile-grid">
+        <div className="profile-side">
         <article className="card profile-summary">
           <div className="avatar">
             {user.name
@@ -782,8 +1141,12 @@ function ProfilePage({
           <p>
             {user.role} · {user.cuisine || "Khana Banao team"}
           </p>
-          <div className="verified-block">{user.email}</div>
+          <div className="verified-block">{contactOf(user)}</div>
         </article>
+        {repo.smsLoginEnabled && (
+          <SignInMethods user={user} busy={busy} run={run} notify={notify} />
+        )}
+        </div>
         <form
           className="card form-card"
           onSubmit={(e) => {
@@ -820,6 +1183,8 @@ function ProfilePage({
                 type="tel"
                 defaultValue={user.phone}
                 maxLength={30}
+                readOnly={!user.email}
+                title={user.email ? undefined : "You sign in with this number. Change it under Sign-in methods."}
               />
             </Field>
             {user.role === "chef" && <><Field label="Work experience (years)">
@@ -852,9 +1217,11 @@ function ProfilePage({
             </>}<Field label="Account role">
               <input value={user.role} disabled readOnly />
             </Field>
-            <Field label="Email">
-              <input value={user.email} disabled readOnly />
-            </Field>
+            {user.email && (
+              <Field label="Email">
+                <input value={user.email} disabled readOnly />
+              </Field>
+            )}
           </div>
           <div className="save-row">
             <button className="accept btn" disabled={busy}>
@@ -1201,7 +1568,7 @@ export default function ChefFlow({
         </button>
       </div>
     );
-  if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access Khana Banao." : "Please contact your administrator to review your registration."}</p><p>{user.email}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
+  if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access Khana Banao." : "Please contact your administrator to review your registration."}</p><p>{contactOf(user)}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
   if (user.role === "chef" && !user.location)
     return (
       <CompleteProfile
@@ -1733,7 +2100,7 @@ export default function ChefFlow({
                 </>
               )}
               {shownPage === "profile" && (
-                <ProfilePage key={user.id} user={user} areas={data.service_areas} busy={busy} run={run} />
+                <ProfilePage key={user.id} user={user} areas={data.service_areas} busy={busy} run={run} notify={notify} />
               )}
               {shownPage === "support" && (
                 <Support data={data} manager={manager} canRaiseTicket={user.role !== "admin"} busy={busy} run={run} />

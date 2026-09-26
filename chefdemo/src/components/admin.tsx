@@ -20,6 +20,7 @@ import {
   money,
   overtime,
   statusLabels,
+  contactOf,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
 import { AreaFields, Empty, Field, Heading, Modal, Run } from "./ui";
@@ -310,7 +311,7 @@ export function Staff({
                   <b>{p.name}</b>
                   {p.id === userId && <small>Your account</small>}
                 </td>
-                <td data-label="Email">{p.email}</td>
+                <td data-label="Email">{contactOf(p)}</td>
                 <td data-label="Role">
                   <select
                     aria-label={`Role for ${p.name}`}
@@ -560,7 +561,7 @@ export function NewBookingModal({
       <input type="radio" name="chef" value={p.id} required />
       <span>
         <b>{p.name}</b>
-        <small>{p.email}</small>
+        <small>{contactOf(p)}</small>
         <small>
           {p.location ? `${p.location}, ${p.region}` : "No location set"}
           {outside ? " · outside this area" : ""}

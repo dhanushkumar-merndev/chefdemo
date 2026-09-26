@@ -24,6 +24,7 @@ import {
   stages,
   statusLabels,
   time,
+  contactOf,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
 import { Heading, Run } from "./ui";
@@ -169,7 +170,7 @@ export default function ServiceDetail({
           {statusLabels[b.status]}
         </span>
       </Heading>
-      {manager && <div className="card section-card section-gap" style={{marginBottom:22}}><h2>Assigned chef</h2><p>{data.profiles.find(p => p.id === b.chef_id)?.name || "Chef"} · {data.profiles.find(p => p.id === b.chef_id)?.email}</p><p className="muted small-copy">Review attendance, selected dishes, kitchen evidence and charges here. The assigned chef records check-in, check-out and uploads photos.</p></div>}
+      {manager && <div className="card section-card section-gap" style={{marginBottom:22}}><h2>Assigned chef</h2><p>{data.profiles.find(p => p.id === b.chef_id)?.name || "Chef"} · {contactOf(data.profiles.find(p => p.id === b.chef_id) ?? { email: "", phone: "" })}</p><p className="muted small-copy">Review attendance, selected dishes, kitchen evidence and charges here. The assigned chef records check-in, check-out and uploads photos.</p></div>}
       <div className="service-layout">
         <div>
           <article className="card section-card">

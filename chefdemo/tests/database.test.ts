@@ -6,7 +6,7 @@ import { PGlite } from "@electric-sql/pglite";
 test("Supabase migration enforces roles, booking workflow, photo evidence and server-calculated overtime", async () => {
   const db = new PGlite();
   try {
-    await db.exec(`create role anon; create role authenticated;
+    await db.exec(`create role anon; create role authenticated; create role service_role;
       create schema auth; create schema storage;
       create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
       create table auth.users(id uuid primary key,email text,raw_user_meta_data jsonb default '{}');
@@ -236,6 +236,78 @@ test("Supabase migration enforces roles, booking workflow, photo evidence and se
       /Administrator/,
       "only an administrator may edit the service-area list",
     );
+
+    // SMS login: profile mobiles are validated and unique; lookup and token
+    // receipts are server-only.
+    await db.exec("reset role");
+    await db.exec(await readFile(new URL("../supabase/migrations/202609260001_sms_login.sql", import.meta.url), "utf8"));
+    const profileWith = (phone: string, region = "Bengaluru", location = "Koramangala") =>
+      db.query("select save_profile($1::jsonb)",[JSON.stringify({name:"Chef",phone,cuisine:"",experience:1,online:true,region,location})]);
+    await asUser(chef);
+    await assert.rejects(profileWith("12345"),/valid 10-digit/,"an invalid mobile is rejected");
+    await profileWith("+91 98765 43210");
+    await asUser(admin);
+    await assert.rejects(profileWith("098765-43210","",""),/already used/,"one mobile cannot belong to two members");
+    await profileWith("","","");
+    await assert.rejects(db.query("select * from sms_login_accounts('919876543210')"),/permission denied/);
+    await assert.rejects(db.query("select claim_sms_login('x')"),/permission denied/);
+    await assert.rejects(db.query("select * from sms_login_receipts"),/permission denied/);
+    await db.exec("reset role");
+    await db.exec("set role service_role");
+    const accounts = await db.query<{id:string}>("select * from sms_login_accounts('9876543210')");
+    assert.deepEqual(accounts.rows.map((r) => r.id),[chef],"a verified mobile finds its member in any format");
+    assert.equal((await db.query("select * from sms_login_accounts('919999999999')")).rows.length,0);
+    assert.equal((await db.query<{ok:boolean}>("select claim_sms_login('hash-1') ok")).rows[0].ok,true);
+    assert.equal((await db.query<{ok:boolean}>("select claim_sms_login('hash-1') ok")).rows[0].ok,false,"an MSG91 token opens one session only");
+    await db.exec("reset role");
+
+    // SMS rate limits: fixed-window counters, server-only.
+    await db.exec(await readFile(new URL("../supabase/migrations/202609260002_sms_rate_limits.sql", import.meta.url), "utf8"));
+    await asUser(chef);
+    await assert.rejects(db.query("select sms_rate_hit('k',1,60)"),/permission denied/);
+    await db.exec("reset role");
+    await db.exec("set role service_role");
+    const hit = async (key: string, limit: number) =>
+      (await db.query<{ok:boolean}>("select sms_rate_hit($1,$2,86400) ok",[key,limit])).rows[0].ok;
+    assert.deepEqual([await hit("send:phone:1",2),await hit("send:phone:1",2),await hit("send:phone:1",2)],[true,true,false],"the third send in the window is refused");
+    assert.equal(await hit("send:phone:2",2),true,"limits are per key");
+    await db.exec("reset role");
+
+    // Email + verified mobile on one account; sign-up by mobile.
+    await db.exec(await readFile(new URL("../supabase/migrations/202609260003_phone_signup.sql", import.meta.url), "utf8"));
+    const asService = async () => { await db.exec("reset role"); await db.exec("set role service_role"); };
+    const loginIds = async (phone: string) => { await asService(); return (await db.query<{id:string}>("select id from sms_login_accounts($1)",[phone])).rows.map((r) => r.id); };
+    assert.deepEqual(await loginIds("9876543210"),[],"a typed-in, unverified mobile does not sign in");
+    await asUser(chef);
+    await assert.rejects(db.query("select set_verified_mobile($1,'+919876543210')",[chef]),/permission denied/,"only the server verifies mobiles");
+    await asService();
+    await db.query("select set_verified_mobile($1,'98765 43210')",[chef]);
+    assert.deepEqual(await loginIds("+91 98765 43210"),[chef],"a verified mobile signs into the account that verified it");
+    await assert.rejects(db.query("select set_verified_mobile($1,'9876543210')",[admin]),/already used/,"a verified mobile belongs to one account");
+    await asUser(chef);
+    await profileWith("+919876543210");
+    assert.equal((await db.query<{v:boolean}>("select phone_verified v from profiles where id=auth.uid()")).rows[0].v,true,"re-saving the same number keeps it verified");
+    await profileWith("9123456780");
+    assert.equal((await db.query<{v:boolean}>("select phone_verified v from profiles where id=auth.uid()")).rows[0].v,false,"a changed number must be verified again");
+    assert.deepEqual(await loginIds("9876543210"),[]);
+
+    await db.exec("reset role"); // Auth creates the user; the server then marks it
+    const mobileOnly = "10000000-0000-4000-8000-000000000009";
+    await db.query("insert into auth.users(id,email,raw_user_meta_data) values($1,'phone-x@phone.invalid','{\"name\":\"Mobile Member\"}')",[mobileOnly]);
+    await asService();
+    await db.query("select mark_phone_account($1,'+919000000001')",[mobileOnly]);
+    await db.exec("reset role");
+    const member = (await db.query<{email:string|null;phone:string;phone_verified:boolean;approval_status:string}>("select email,phone,phone_verified,approval_status from profiles where id=$1",[mobileOnly])).rows[0];
+    assert.deepEqual(member,{email:null,phone:"+919000000001",phone_verified:true,approval_status:"pending"},"a mobile sign-up has no email and awaits approval");
+    assert.deepEqual(await loginIds("9000000001"),[mobileOnly]);
+    await asUser(mobileOnly);
+    await assert.rejects(profileWith("9111111111"),/cannot be changed/,"a mobile-only member cannot drop their only sign-in");
+    await profileWith("+91 90000 00001");
+    await db.exec("reset role");
+    await db.query("update auth.users set email='mobile.member@test.dev' where id=$1",[mobileOnly]);
+    assert.equal((await db.query<{email:string}>("select email from profiles where id=$1",[mobileOnly])).rows[0].email,"mobile.member@test.dev","a confirmed email becomes a second sign-in on the same profile");
+    assert.deepEqual(await loginIds("9000000001"),[mobileOnly],"the mobile still signs in after an email is added");
+    await db.exec("reset role");
   } finally {
     await db.close();
   }

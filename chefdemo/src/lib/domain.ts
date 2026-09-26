@@ -23,10 +23,13 @@ export const statusLabels: Record<Status, string> = {
 export interface Profile {
   id: string;
   name: string;
-  email: string;
+  /** Empty for a member who signed up by mobile and has not added an email. */
+  email: string | null;
   approval_status?: "pending" | "approved" | "rejected";
   role: Role;
   phone: string;
+  /** Verified by OTP: the member can sign in with this mobile. */
+  phone_verified?: boolean;
   cuisine: string;
   experience: number;
   online: boolean;
@@ -255,3 +258,7 @@ export function csvCell(value: unknown) {
     '"' + (/^[=+\-@\t\r]/.test(s) ? "'" : "") + s.replaceAll('"', '""') + '"'
   );
 }
+
+/** How to show a member: their email, or their mobile when they have none. */
+export const contactOf = (p: Pick<Profile, "email" | "phone">) =>
+  p.email || p.phone;

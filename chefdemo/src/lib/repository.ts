@@ -66,6 +66,76 @@ export async function login(email: string, password: string) {
   });
   if (error) throw error;
 }
+export const smsLoginEnabled =
+  !isDemo && process.env.NEXT_PUBLIC_SMS_LOGIN === "on";
+async function smsCall<T>(
+  path: string,
+  input: Record<string, string>,
+  signedIn = false,
+) {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (signedIn) {
+    const { data } = await supabase!.auth.getSession();
+    if (data.session) headers.authorization = `Bearer ${data.session.access_token}`;
+  }
+  const response = await fetch(`/api/auth/sms/${path}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(input),
+  });
+  const body = (await response.json().catch(() => ({}))) as T & {
+    error?: string;
+  };
+  if (!response.ok)
+    throw new Error(body.error ?? "SMS verification failed. Please try again.");
+  return body;
+}
+export type SmsIntent = "login" | "signup" | "link";
+/** Sends a code (see /api/auth/sms/send). "link" verifies a mobile for the
+ *  signed-in member's own account. */
+export function smsSendOtp(phone: string, intent: SmsIntent) {
+  return smsCall<{ reqId: string; resendAfter: number }>(
+    "send",
+    { phone, intent },
+    intent === "link",
+  );
+}
+/** Checks the code (see /api/auth/sms/verify). Signs in, creating the account
+ *  first when a name is given; for "link" it verifies the mobile instead. */
+export async function smsVerifyOtp(
+  phone: string,
+  reqId: string,
+  code: string,
+  options: { intent: SmsIntent; name?: string },
+) {
+  const body = await smsCall<{ tokenHash?: string }>(
+    "verify",
+    { phone, reqId, code, intent: options.intent, name: options.name ?? "" },
+    options.intent === "link",
+  );
+  if (options.intent === "link") return;
+  const { error } = await supabase!.auth.verifyOtp({
+    token_hash: body.tokenHash!,
+    type: "magiclink",
+  });
+  if (error) throw error;
+}
+/** A member who signed up by mobile adds email + password sign-in. Supabase
+ *  emails a confirmation link; the email works once it is confirmed. */
+export async function addEmailLogin(email: string, password: string) {
+  const { error } = await supabase!.auth.updateUser(
+    { email: email.trim().toLowerCase(), password },
+    { emailRedirectTo: window.location.origin },
+  );
+  if (error?.code === "email_exists")
+    throw new Error("This email is already used by another account.");
+  if (error) throw error;
+}
+/** The email address waiting for confirmation, if any. */
+export async function pendingEmail() {
+  const { data } = await supabase!.auth.getUser();
+  return data.user?.new_email ?? null;
+}
 export async function register(name: string, email: string, password: string) {
   const { data, error } = await supabase!.auth.signUp({
     email: email.trim().toLowerCase(),

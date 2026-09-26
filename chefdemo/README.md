@@ -44,6 +44,26 @@ Register with that exact email on the login page. If Supabase requires email con
 
 Administrators add staff in **Team & roles**. This authorizes an email and role; it sends no invitation. New staff register with that email and receive the authorized role. All new registrations await administrator approval, including staff whose roles were assigned in advance. Administrators approve or reject members in Team & roles. Pending and rejected accounts cannot access operational data. Other registrations create chef accounts. Role values from signup metadata are ignored.
 
+## SMS login (MSG91)
+
+The login page shows **Email** and **Mobile OTP** when `NEXT_PUBLIC_SMS_LOGIN=on` and the server-only MSG91 and Supabase secret keys in `.env.example` are set. Apply the migrations first (`npx supabase db push`).
+
+Members can register and sign in with either email + password or a mobile + OTP, and add the other later under **Profile → Sign-in methods**; both open the same account:
+
+- An email member verifies their mobile by OTP. A number typed into the profile form is only a contact detail; it signs in only after OTP verification, and a verified number belongs to one account.
+- A mobile member adds an email + password. Supabase emails a confirmation link; the email works once confirmed. This needs **Secure email change turned off** (Supabase → Authentication → Providers → Email), because a mobile member's internal address cannot receive the second confirmation.
+- Mobile sign-ups get a random internal Auth address (`phone-<uuid>@phone.invalid`, never shown or emailed), because Supabase's phone provider stays off. Like every registration, they await administrator approval as chefs.
+
+Numbers are Indian mobiles only.
+
+Codes are sent and checked from the server through MSG91's widget API, so no MSG91 or captcha script loads in the browser (works with Brave Shields and ad blockers). Keep **captcha off** in the MSG91 widget settings; with it on, MSG91 refuses server calls. The widget token auth is server-only, so the only way to send a code is through `/api/auth/sms/send`, which:
+
+- sends sign-in codes only to verified numbers, and sign-up / verify-mobile codes only to numbers not yet verified (100 per day across those);
+- allows per number 1 send per 30 s, 5 per hour, 10 per day; per IP 10 per hour, 30 per day; and 500 SMS per day across all numbers;
+- limits code checks to 5 per 15 minutes and 20 per day per number, 30 per hour per IP.
+
+Limits live in `LIMITS` in `src/lib/sms-login.ts` (counters in `sms_rate_counters`). `/api/auth/sms/verify` checks the code with MSG91, re-verifies MSG91's access token with the account authkey, requires MSG91 to attest the same mobile, accepts each token once, and returns a one-time Supabase sign-in token. The member's email password is never changed.
+
 ## Service workflow
 
 1. Admin/manager creates a booking with chef, scheduled in/out timestamps in IST, base fee and hourly overtime rate. Overlapping uncompleted bookings are rejected.
@@ -68,7 +88,7 @@ Photos accept JPG, PNG or WebP, up to 5 MB. Live files are private and displayed
 
 Includes searchable bookings, a functioning month calendar, earnings CSV exports, dish management, profile updates, support tickets, derived booking alerts and analytics. Database RLS and workflow functions enforce access.
 
-Analytics show completed service value, overtime, available chefs, booking status, seven-day earnings and chef photo completion. Date filters include upcoming bookings. Figures are recorded service values; payment collection, bank payouts, SMS OTP and identity verification are outside this prototype.
+Analytics show completed service value, overtime, available chefs, booking status, seven-day earnings and chef photo completion. Date filters include upcoming bookings. Figures are recorded service values; payment collection, bank payouts and identity verification are outside this prototype.
 
 ## Checks
 
