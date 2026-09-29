@@ -42,7 +42,9 @@
     ".next-3200/types/**/*.ts",
     ".next-3200/dev/types/**/*.ts",
     ".next-smscheck/types/**/*.ts",
-    ".next-smscheck/dev/types/**/*.ts"
+    ".next-smscheck/dev/types/**/*.ts",
+    ".next-sms/types/**/*.ts",
+    ".next-sms/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

@@ -15,10 +15,22 @@ The live database has **not** been changed. The Supabase CLI returned HTTP 403 (
 
 Existing named areas remain available. “All locations” means coverage across the selected region; this change does not add an exhaustive list of individual neighbourhoods or live GPS tracking.
 
-## Code follow-ups before publishing
+## Implemented locally
 
-- [ ] Update chef grouping in `src/components/admin.tsx`: it currently compares only location names. Match the region too, and treat `All locations` as coverage within that region. Otherwise chefs from different regions using the same label can appear in the same nearby group.
-- [ ] Refresh existing demo service-area data without deleting saved bookings. `src/lib/repository.ts` currently reuses the saved localStorage dataset, so existing demo sessions will not automatically receive additions from `src/lib/seed.ts`. Live mode reads the database and receives the new rows after the migration and a reload.
+- [x] Geoapify locality search in Complete your profile, Profile, and Create booking. Choose a region, type at least three characters in **Search localities**, and select a result.
+- [x] Keep the Geoapify key on the server. Require an approved signed-in account in live mode; accept only server-verified selections when adding a service area. Disabled areas stay disabled.
+- [x] Match chefs by region as well as location, including region-wide coverage and Delhi/NCR.
+- [x] Add missing service-area defaults to existing demo sessions while preserving saved bookings, custom locations, and disabled entries.
+- [x] Restore the original Khana Banao logo and sizing.
+
+Geoapify uses the existing `service_areas` table. Selecting a verified suggestion registers that one locality through the server, then the existing profile/booking save functions can accept it. The migration below is still needed for the predefined **All locations** and **NCR** options. No live profile, booking, or service-area records were changed during implementation/testing.
+
+## Deployment configuration
+
+- [ ] Set `GEOAPIFY_API_KEY` in the hosting environment (it is already configured locally).
+- [ ] Keep `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) configured on the server for live-mode location registration, alongside the public Supabase URL and publishable key.
+- [ ] Restart the local dev server after changing environment settings; redeploy after setting hosted environment variables.
+- [ ] With an approved account, search for a locality, select it, and save/reload a profile or test booking. Existing saved locations remain available when the search service is unavailable.
 
 ## Run when ready
 
@@ -58,11 +70,8 @@ order by region, name;
 - [ ] Save a chef profile and a test booking using the new options.
 - [ ] Check that chefs in a different region are listed under **Other areas**, even when both use `All locations`.
 
-## Optional later: searchable addresses
+## Location search notes
 
-No external location API is needed for the fixed service-area dropdowns. If the requirement expands to searching locality names or addresses, consider:
+[Geoapify Address Autocomplete](https://www.geoapify.com/address-autocomplete/) is integrated. The free tier provides 3,000 credits/day, with one credit per autocomplete request (checked 29 September 2026). The UI includes Geoapify/OpenStreetMap attribution, waits for a typing pause, and cancels outdated searches. The server applies a per-member, per-instance limit of 30 requests/minute; this is not a distributed daily spending cap.
 
-- [Geoapify Address Autocomplete](https://www.geoapify.com/address-autocomplete/): free tier of 3,000 credits/day; one autocomplete request costs one credit. Attribution is required.
-- [LocationIQ](https://web.locationiq.com/pricing): free tier of 5,000 requests/day, 2 requests/second and 60 requests/minute; commercial use requires the provider's attribution/link.
-
-Limits checked on 29 September 2026; review current provider terms before integration. These APIs return search suggestions, not a guaranteed complete list of every neighbourhood. Keep the app's supported regions as a separate service-coverage rule. No API integration or new API key is required for this migration.
+Results are restricted to India and checked against the selected region using the provider's city/state/district metadata. Delhi includes recognised NCR areas, and Rajasthan spans the state. Source for NCR district names: [NCR Planning Board](https://ncrpb.nic.in/ncrconstituent.html). Provider data can be incomplete; the search does not guarantee every neighbourhood or exact service boundaries. Kitchen address entry remains separate from service locality selection.

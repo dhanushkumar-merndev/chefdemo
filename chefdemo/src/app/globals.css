@@ -97,7 +97,7 @@ button {
 }
 .brand-logo {
   display: block;
-  width: min(130px, 100%);
+  width: min(184px, 100%);
   height: auto;
 }
 .brand small {
@@ -114,12 +114,9 @@ button {
   background: linear-gradient(135deg, #fffaf2, #f4f7f4);
   border: 1px solid #ece8df;
   border-radius: 16px;
-  align-items: center;
-  text-align: center;
 }
 .sidebar .brand-logo {
-  width: min(100px, 100%);
-  margin: 0 auto;
+  width: min(196px, 100%);
 }
 .sidebar .brand small {
   color: #9a3d38;
@@ -1767,12 +1764,12 @@ td small {
 }
 .login-box .brand {
   align-items: center;
-  padding: 0 0 16px;
-  margin-bottom: 20px;
+  padding: 0 0 25px;
+  margin-bottom: 28px;
   border-bottom: 1px solid #eee5d8;
 }
 .login-box .brand-logo {
-  width: min(135px, 100%);
+  width: min(270px, 100%);
 }
 .login-box .brand small {
   color: #b23f3b;
@@ -3182,6 +3179,16 @@ td {
 .heading-actions { flex-wrap:wrap; }
 .page-heading h1 { line-height:1.15; }
 .page-heading p { line-height:1.6; }
+.location-search { grid-column: 1 / -1; min-width: 0; }
+.location-search p { margin: 6px 0; }
+.location-search p:empty { display: none; }
+.location-suggestions { margin: 10px 0; padding: 0; list-style: none; border: 1px solid var(--border, #dce0da); border-radius: 10px; overflow: hidden; }
+.location-suggestions li + li { border-top: 1px solid var(--border, #dce0da); }
+.location-suggestions button { display: block; width: 100%; min-height: 44px; padding: 12px 14px; border: 0; background: white; text-align: left; font: inherit; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.location-suggestions button:hover, .location-suggestions button:focus-visible { background: #f3f5ee; }
+.location-suggestions button:disabled { opacity: .6; cursor: wait; }
+.location-attribution { display: block; margin-top: 8px; color: #657066; font-size: 11px; }
+.location-attribution a { color: inherit; text-decoration: underline; }
 .form-grid, .content-grid, .profile-grid, .service-layout { min-width:0; }
 .form-grid > *, .content-grid > *, .profile-grid > * { min-width:0; }
 .field input, .field select, .field textarea { max-width:100%; min-height:44px; }

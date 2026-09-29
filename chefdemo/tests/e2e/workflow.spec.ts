@@ -6,6 +6,77 @@ const pixel = Buffer.from(
 );
 const upload = { name: "kitchen.png", mimeType: "image/png", buffer: pixel };
 
+test("Geoapify locality selection saves a chef profile and survives reload", async ({ page }) => {
+  await page.route("**/api/locations**", async (route) => {
+    if (route.request().method() === "POST") {
+      expect(route.request().postDataJSON()).toEqual({ token: "verified-velachery" });
+      await route.fulfill({ json: { area: { id: "geo-velachery", region: "Chennai", name: "Velachery", active: true } } });
+    } else {
+      const url = new URL(route.request().url());
+      expect(url.searchParams.get("region")).toBe("Chennai");
+      expect(url.searchParams.get("q")).toBe("Velachery");
+      await route.fulfill({ json: { suggestions: [{ name: "Velachery", label: "Velachery, Chennai, Tamil Nadu, India", token: "verified-velachery" }] } });
+    }
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore chef dashboard" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
+  await page.getByLabel("Region you work in").selectOption("Chennai");
+  await page.getByLabel("Search localities").fill("Velachery");
+  await page.getByRole("button", { name: "Velachery, Chennai, Tamil Nadu, India", exact: true }).click();
+  await expect(page.getByLabel("Location you work in")).toHaveValue("Velachery");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("status").last()).toContainText("Profile saved");
+  await page.reload();
+  await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
+  await expect(page.getByLabel("Location you work in")).toHaveValue("Velachery");
+});
+
+test("location search recovers from provider failure and clears on region change", async ({ page }) => {
+  await page.route("**/api/locations**", (route) => route.fulfill({ status: 503, json: { error: "Location search is unavailable. Choose a saved location or try again." } }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Manage bookings" }).click();
+  await page.getByRole("button", { name: "Create booking", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Service region").selectOption("Chennai");
+  await dialog.getByLabel("Search localities").fill("Velachery");
+  await expect(dialog.getByRole("alert")).toContainText("Location search is unavailable");
+  await dialog.getByLabel("Service location").selectOption("Adyar");
+  await expect(dialog.getByLabel("Service location")).toHaveValue("Adyar");
+  await dialog.getByLabel("Service region").selectOption("Delhi");
+  await expect(dialog.getByLabel("Service location")).toHaveValue("");
+  await expect(dialog.getByLabel("Search localities")).toHaveValue("");
+});
+
+test("a searched NCR location persists on a new booking", async ({ page }) => {
+  await page.route("**/api/locations**", (route) => route.fulfill({ json: route.request().method() === "POST"
+    ? { area: { id: "noida-area", region: "Delhi", name: "Sector 62, Noida", active: true } }
+    : { suggestions: [{ name: "Sector 62, Noida", label: "Sector 62, Noida, India", token: "noida-token" }] }
+  }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open admin panel" }).click();
+  await page.locator(".sidebar").getByRole("button", { name: "Manage bookings" }).click();
+  await page.getByRole("button", { name: "Create booking", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Service region").selectOption("Delhi");
+  await dialog.getByLabel("Search localities").fill("Sector 62 Noida");
+  await dialog.getByRole("button", { name: "Sector 62, Noida, India", exact: true }).click();
+  await expect(dialog.getByLabel("Service location")).toHaveValue("Sector 62, Noida");
+  await dialog.getByLabel("Customer name").fill("NCR Customer");
+  await dialog.getByLabel("Service", { exact: true }).fill("Dinner");
+  await dialog.getByRole("radio", { name: /Arjun Kapoor/ }).check();
+  await dialog.getByLabel("Scheduled in (IST)").fill("2030-02-11T12:00");
+  await dialog.getByLabel("Scheduled out (IST)").fill("2030-02-11T15:00");
+  await dialog.getByLabel("Kitchen address").fill("12 Test Road, Sector 62, Noida");
+  await dialog.getByRole("button", { name: "Create booking" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator(".booking-row").filter({ hasText: "NCR Customer" })).toContainText("Sector 62, Noida, Delhi");
+  await page.reload();
+  await page.locator(".sidebar").getByRole("button", { name: "Manage bookings" }).click();
+  await expect(page.locator(".booking-row").filter({ hasText: "NCR Customer" })).toContainText("Sector 62, Noida, Delhi");
+});
+
 test("chef saves dishes, sees overtime, uploads evidence and completes service with persistence", async ({
   page,
 }) => {

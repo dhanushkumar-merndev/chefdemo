@@ -1,18 +1,20 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChefHat, X } from "lucide-react";
 import { ServiceArea } from "@/lib/domain";
+import { supportedRegions } from "@/lib/service-areas";
+import { LocationSearch } from "./location-search";
 
 export function Brand({ subtitle = "Chef Login" }: { subtitle?: string }) {
   return (
     <div className="brand">
       <Image
         className="brand-logo"
-        src="/chefpy-logo.png"
-        alt="Chefpy"
-        width={983}
-        height={963}
+        src="/khana-banao-logo.png"
+        alt="Khana Banao"
+        width={1260}
+        height={427}
         priority
       />
       <small>{subtitle}</small>
@@ -88,11 +90,13 @@ export function AreaFields({
   regionLabel?: string;
   locationLabel?: string;
 }) {
-  const live = areas.filter((a) => a.active);
-  const regions = [...new Set(live.map((a) => a.region))].sort();
-  const locations = [...new Set(live
-    .filter((a) => a.region === region)
-    .map((a) => a.name))]
+  const [selectedAreas, setSelectedAreas] = useState<ServiceArea[]>([]);
+  const live = [...areas, ...selectedAreas].filter((a) => a.active);
+  const regions = [...new Set([...supportedRegions, ...live.map((a) => a.region)])].sort();
+  const locations = [...new Set([
+    ...live.filter((a) => a.region === region).map((a) => a.name),
+    ...(location ? [location] : []),
+  ])]
     .sort((a, b) => {
       if (a === "All locations") return -1;
       if (b === "All locations") return 1;
@@ -136,6 +140,12 @@ export function AreaFields({
           ))}
         </select>
       </Field>
+      {supportedRegions.some((r) => r === region) && (
+        <LocationSearch key={`${region}:${location}`} region={region} onSelect={(area) => {
+          setSelectedAreas((previous) => [...previous.filter((a) => a.id !== area.id), area]);
+          onLocation(area.name);
+        }} />
+      )}
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { demoAdmin, demoChef, seedData } from "./seed";
+import { mergeServiceAreas, type LocationSuggestion } from "./service-areas";
 import {
   BookingAction,
   Data,
@@ -9,6 +10,7 @@ import {
   Profile,
   Role,
   Stage,
+  ServiceArea,
   Ticket,
   transition,
   validateBooking,
@@ -20,7 +22,15 @@ const userKey = "chefflow-user-v1";
 export const isDemo = !supabase;
 function localData(): Data {
   const saved = localStorage.getItem(dataKey);
-  if (saved) return JSON.parse(saved) as Data;
+  if (saved) {
+    const data = JSON.parse(saved) as Data;
+    const areas = mergeServiceAreas(data.service_areas ?? [], seedData().service_areas);
+    if (areas.length !== data.service_areas?.length) {
+      data.service_areas = areas;
+      localStorage.setItem(dataKey, JSON.stringify(data));
+    }
+    return data;
+  }
   const data = seedData();
   localStorage.setItem(dataKey, JSON.stringify(data));
   return data;
@@ -204,6 +214,38 @@ export async function loadData(): Promise<Data> {
     staff_access: results[6].data,
     service_areas: results[7].data,
   } as unknown as Data;
+}
+
+async function locationRequest(path: string, init: RequestInit) {
+  const headers = new Headers(init.headers);
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) headers.set("authorization", `Bearer ${data.session.access_token}`);
+  }
+  const response = await fetch(path, { ...init, headers });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || "Location search is unavailable. Please try again.");
+  return body;
+}
+
+export async function searchServiceLocations(region: string, q: string, signal: AbortSignal): Promise<LocationSuggestion[]> {
+  const body = await locationRequest(`/api/locations?${new URLSearchParams({ region, q })}`, { signal });
+  return body.suggestions;
+}
+
+export async function selectServiceLocation(token: string, signal: AbortSignal): Promise<ServiceArea> {
+  const { area } = await locationRequest("/api/locations", {
+    method: "POST", signal, headers: { "content-type": "application/json" }, body: JSON.stringify({ token }),
+  }) as { area: ServiceArea };
+  if (!supabase) {
+    const data = localData();
+    actor(data);
+    const existing = data.service_areas.find((a) => a.region === area.region && a.name === area.name);
+    if (existing && !existing.active) throw new Error("This location is currently unavailable for service.");
+    data.service_areas = mergeServiceAreas(data.service_areas, [area]);
+    saveLocal(data);
+  }
+  return area;
 }
 export async function actOnBooking(
   id: string,

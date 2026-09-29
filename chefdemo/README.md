@@ -64,6 +64,16 @@ Codes are sent and checked from the server through MSG91's widget API, so no MSG
 
 Limits live in `LIMITS` in `src/lib/sms-login.ts` (counters in `sms_rate_counters`). `/api/auth/sms/verify` checks the code with MSG91, re-verifies MSG91's access token with the account authkey, requires MSG91 to attest the same mobile, accepts each token once, and returns a one-time Supabase sign-in token. The member's email password is never changed.
 
+## Location search (Geoapify)
+
+Set the server-only `GEOAPIFY_API_KEY` in `.env` and in your hosting environment. Live mode also uses the server-only `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) to register verified locations. Restart/redeploy after changing environment variables.
+
+In Complete your profile, Profile, or Create booking, choose a region and use **Search localities**. Searches begin after three characters and a typing pause. The existing location dropdown remains available. Selecting a suggestion adds that verified locality to `service_areas` before saving the profile or booking, so no new schema migration is needed for search. The existing expansion migration is still required for the predefined All locations/NCR entries; see [pending.md](pending.md).
+
+`/api/locations` keeps the provider key private, verifies live users are approved, filters suggestions to India and the selected region, and signs results for selection. Signed suggestions expire after 15 minutes; arbitrary names cannot be registered through this endpoint. Existing disabled areas are never reactivated. Search and selection are limited to 30 requests/minute per member per server instance; production scaling may need a shared quota limiter. Demo mode registers selections only in browser storage.
+
+Geoapify/OpenStreetMap attribution appears beside search results. Search is for localities, not live GPS tracking or complete address verification. Geographic coverage depends on the provider's administrative metadata; the full kitchen address is still entered separately.
+
 ## Service workflow
 
 1. Admin/manager creates a booking with chef, scheduled in/out timestamps in IST, base fee and hourly overtime rate. Overlapping uncompleted bookings are rejected.

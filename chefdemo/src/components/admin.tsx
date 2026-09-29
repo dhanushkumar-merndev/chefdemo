@@ -23,6 +23,7 @@ import {
   contactOf,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
+import { servesArea } from "@/lib/service-areas";
 import { AreaFields, Empty, Field, Heading, Modal, Run } from "./ui";
 
 export function exportBookings(data: Data) {
@@ -554,7 +555,7 @@ export function NewBookingModal({
   const chefs = data.profiles.filter(
     (p) => p.role === "chef" && (!p.approval_status || p.approval_status === "approved"),
   );
-  const nearby = chefs.filter((p) => p.location === location && location);
+  const nearby = chefs.filter((p) => servesArea(p, region, location));
   const others = chefs.filter((p) => !nearby.includes(p));
   const chefOption = (p: Profile, outside: boolean) => (
     <label className="chef-picker-option" key={p.id}>
@@ -642,7 +643,7 @@ export function NewBookingModal({
               )}
               {location && nearby.length > 0 && (
                 <>
-                  <p className="picker-group">In {location}</p>
+                  <p className="picker-group">In {location === "All locations" ? region : location}</p>
                   {nearby.map((p) => chefOption(p, false))}
                 </>
               )}
