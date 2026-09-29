@@ -3,15 +3,22 @@ import { Booking, Data, ServiceArea } from "./domain";
 export const demoChef = "10000000-0000-4000-8000-000000000001";
 export const demoAdmin = "10000000-0000-4000-8000-000000000002";
 const areaList: [string, string][] = [
+  ["Bengaluru", "All locations"],
   ["Bengaluru", "Koramangala"],
   ["Bengaluru", "Indiranagar"],
   ["Bengaluru", "Whitefield"],
   ["Bengaluru", "HSR Layout"],
   ["Bengaluru", "Jayanagar"],
+  ["Chennai", "All locations"],
   ["Chennai", "Adyar"],
   ["Chennai", "Anna Nagar"],
+  ["Delhi", "NCR"],
+  ["Delhi", "All locations"],
+  ["Hyderabad", "All locations"],
   ["Hyderabad", "Gachibowli"],
+  ["Mumbai", "All locations"],
   ["Mumbai", "Bandra"],
+  ["Rajasthan", "All locations"],
 ];
 export function seedData(): Data {
   const service_areas: ServiceArea[] = areaList.map(([region, name], i) => ({

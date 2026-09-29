@@ -9,10 +9,10 @@ export function Brand({ subtitle = "Chef Login" }: { subtitle?: string }) {
     <div className="brand">
       <Image
         className="brand-logo"
-        src="/khana-banao-logo.png"
-        alt="Khana Banao"
-        width={1260}
-        height={427}
+        src="/chefpy-logo.png"
+        alt="Chefpy"
+        width={983}
+        height={963}
         priority
       />
       <small>{subtitle}</small>
@@ -90,10 +90,14 @@ export function AreaFields({
 }) {
   const live = areas.filter((a) => a.active);
   const regions = [...new Set(live.map((a) => a.region))].sort();
-  const locations = live
+  const locations = [...new Set(live
     .filter((a) => a.region === region)
-    .map((a) => a.name)
-    .sort();
+    .map((a) => a.name))]
+    .sort((a, b) => {
+      if (a === "All locations") return -1;
+      if (b === "All locations") return 1;
+      return a.localeCompare(b);
+    });
   return (
     <>
       <Field label={regionLabel}>

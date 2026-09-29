@@ -97,7 +97,7 @@ button {
 }
 .brand-logo {
   display: block;
-  width: min(184px, 100%);
+  width: min(130px, 100%);
   height: auto;
 }
 .brand small {
@@ -114,9 +114,12 @@ button {
   background: linear-gradient(135deg, #fffaf2, #f4f7f4);
   border: 1px solid #ece8df;
   border-radius: 16px;
+  align-items: center;
+  text-align: center;
 }
 .sidebar .brand-logo {
-  width: min(196px, 100%);
+  width: min(100px, 100%);
+  margin: 0 auto;
 }
 .sidebar .brand small {
   color: #9a3d38;
@@ -1764,12 +1767,12 @@ td small {
 }
 .login-box .brand {
   align-items: center;
-  padding: 0 0 25px;
-  margin-bottom: 28px;
+  padding: 0 0 16px;
+  margin-bottom: 20px;
   border-bottom: 1px solid #eee5d8;
 }
 .login-box .brand-logo {
-  width: min(270px, 100%);
+  width: min(135px, 100%);
 }
 .login-box .brand small {
   color: #b23f3b;

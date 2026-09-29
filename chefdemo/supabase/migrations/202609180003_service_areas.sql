@@ -70,9 +70,11 @@ begin
 end $$;
 
 insert into public.service_areas(region,name) values
-  ('Bengaluru','Koramangala'),('Bengaluru','Indiranagar'),('Bengaluru','Whitefield'),('Bengaluru','HSR Layout'),('Bengaluru','Jayanagar'),
-  ('Chennai','Adyar'),('Chennai','Anna Nagar'),('Chennai','T Nagar'),
-  ('Hyderabad','Gachibowli'),('Hyderabad','Banjara Hills'),
-  ('Mumbai','Andheri'),('Mumbai','Bandra'),('Mumbai','Powai')
+  ('Bengaluru','All locations'),('Bengaluru','Koramangala'),('Bengaluru','Indiranagar'),('Bengaluru','Whitefield'),('Bengaluru','HSR Layout'),('Bengaluru','Jayanagar'),
+  ('Chennai','All locations'),('Chennai','Adyar'),('Chennai','Anna Nagar'),('Chennai','T Nagar'),
+  ('Delhi','NCR'),('Delhi','All locations'),
+  ('Hyderabad','All locations'),('Hyderabad','Gachibowli'),('Hyderabad','Banjara Hills'),
+  ('Mumbai','All locations'),('Mumbai','Andheri'),('Mumbai','Bandra'),('Mumbai','Powai'),
+  ('Rajasthan','All locations')
 on conflict(region,name) do nothing;
 commit;

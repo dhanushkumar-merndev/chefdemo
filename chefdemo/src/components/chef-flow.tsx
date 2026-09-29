@@ -1899,13 +1899,18 @@ export default function ChefFlow({
                       onChange={(e) => setSearchLocation(e.target.value)}
                     >
                       <option value="">All locations</option>
-                      {data.service_areas
-                        .filter(
-                          (a) =>
-                            a.active &&
-                            (!searchRegion || a.region === searchRegion),
-                        )
-                        .map((a) => a.name)
+                      {[
+                        ...new Set(
+                          data.service_areas
+                            .filter(
+                              (a) =>
+                                a.active &&
+                                (!searchRegion || a.region === searchRegion) &&
+                                a.name !== "All locations",
+                            )
+                            .map((a) => a.name),
+                        ),
+                      ]
                         .sort()
                         .map((l) => (
                           <option key={l} value={l}>
