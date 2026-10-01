@@ -30,6 +30,28 @@ test("location search filters countries and regions, deduplicates and signs veri
   assert.equal(readLocationToken(`${Buffer.from(JSON.stringify(forged)).toString("base64url")}.${signature}`, "secret"), null);
 });
 
+test("Bengaluru locality search uses proximity bias without replacing Banashankari with the city", async () => {
+  const suggestions = await searchLocations("Bengaluru", "banashankari", "secret", async (input) => {
+    const url = new URL(String(input));
+    assert.equal(url.searchParams.get("text"), "banashankari");
+    assert.equal(url.searchParams.get("bias"), "proximity:77.5946,12.9716");
+    return Response.json({ results: [{
+      name: "Banashankari",
+      suburb: "Banashankari",
+      city: "Bengaluru",
+      county: "Bengaluru Urban",
+      state: "Karnataka",
+      country_code: "in",
+      formatted: "Banashankari, Bengaluru, KA, India",
+      result_type: "suburb",
+    }] });
+  });
+
+  assert.equal(suggestions.length, 1);
+  assert.equal(suggestions[0].name, "Banashankari");
+  assert.equal(suggestions[0].label, "Banashankari, Bengaluru, KA, India");
+});
+
 test("Delhi includes NCR while Rajasthan searches exclude other states", async () => {
   const results = [
     { country_code: "in", state: "Uttar Pradesh", city: "Noida", county: "Dadri", suburb: "Sector 62", result_type: "suburb" },

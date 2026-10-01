@@ -20,6 +20,14 @@ const cities: Record<string, string[]> = {
   Hyderabad: ["hyderabad", "secunderabad"],
   Mumbai: ["mumbai", "mumbai suburban"],
 };
+const regionBias: Record<string, string> = {
+  Bengaluru: "proximity:77.5946,12.9716",
+  Chennai: "proximity:80.2707,13.0827",
+  Delhi: "proximity:77.209,28.6139",
+  Hyderabad: "proximity:78.4867,17.385",
+  Mumbai: "proximity:72.8777,19.076",
+  Rajasthan: "proximity:75.7873,26.9124",
+};
 // NCRPB constituent areas: https://ncrpb.nic.in/ncrconstituent.html
 // Include common provider spellings and cities where county is a subdistrict.
 const ncr: Record<string, string[]> = {
@@ -41,12 +49,16 @@ function inRegion(p: Place, region: string) {
 
 function selection(p: Place, region: string) {
   if (!inRegion(p, region) || !["suburb", "district", "city", "postcode", "county"].includes(clean(p.result_type))) return null;
-  let name = clean(p.suburb) || clean(p.name) || clean(p.address_line1) || clean(p.city);
+  let name = clean(p.name) || clean(p.suburb) || clean(p.address_line1) || clean(p.city);
   // NCR and Rajasthan span cities: distinguish places such as Malviya Nagar.
   const city = clean(p.city);
   if ((region === "Delhi" || region === "Rajasthan") && city && !name.toLowerCase().includes(city.toLowerCase())) name += `, ${city}`;
   if (!name || name.length > 80) return null;
-  return { region, name, label: (clean(p.formatted) || [name, region, "India"].join(", ")).slice(0, 300) };
+  const formatted = clean(p.formatted);
+  const label = formatted.toLowerCase().includes(name.toLowerCase())
+    ? formatted
+    : [name, city || region, "India"].filter(Boolean).join(", ");
+  return { region, name, label: label.slice(0, 300) };
 }
 
 const signature = (payload: string, key: string) => createHmac("sha256", key).update(`geoapify-location:${payload}`).digest();
@@ -77,9 +89,9 @@ export async function searchLocations(region: string, query: string, key: string
   if (!key) throw new LocationError(UNAVAILABLE);
   const url = new URL("https://api.geoapify.com/v1/geocode/autocomplete");
   url.search = new URLSearchParams({
-    text: region === "Delhi" ? query : `${query}, ${region}`,
+    text: query,
     type: "locality", filter: "countrycode:in", lang: "en", format: "json", limit: "10", apiKey: key,
-    ...(region === "Delhi" ? { bias: "proximity:77.209,28.6139" } : {}),
+    bias: regionBias[region],
   }).toString();
   try {
     const response = await fetchImpl(url.toString(), { signal: AbortSignal.timeout(8000), cache: "no-store" });

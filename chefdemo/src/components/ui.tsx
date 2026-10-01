@@ -122,30 +122,20 @@ export function AreaFields({
           ))}
         </select>
       </Field>
-      <Field label={locationLabel}>
-        <select
-          name="location"
-          value={location}
-          required={required}
-          disabled={!region}
-          onChange={(e) => onLocation(e.target.value)}
-        >
-          <option value="">
-            {region ? "Select location" : "Select a region first"}
-          </option>
-          {locations.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </Field>
-      {supportedRegions.some((r) => r === region) && (
-        <LocationSearch key={`${region}:${location}`} region={region} onSelect={(area) => {
+      <LocationSearch
+        key={region}
+        region={region}
+        location={location}
+        locations={locations}
+        label={locationLabel}
+        required={required}
+        searchable={supportedRegions.some((r) => r === region)}
+        onLocation={onLocation}
+        onSelect={(area) => {
           setSelectedAreas((previous) => [...previous.filter((a) => a.id !== area.id), area]);
           onLocation(area.name);
-        }} />
-      )}
+        }}
+      />
     </>
   );
 }

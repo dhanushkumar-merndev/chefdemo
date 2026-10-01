@@ -51,6 +51,7 @@ import {
 } from "./admin";
 import ServiceDetail from "./service-detail";
 import { AreaFields, Brand, Empty, Field, Heading, Modal, Run } from "./ui";
+import { LocationAttribution } from "./location-attribution";
 
 type Page =
   | "dashboard"
@@ -989,6 +990,7 @@ function CompleteProfile({
       >
         Sign out
       </button>
+      <LocationAttribution />
       {toastElement}
     </div>
   );
@@ -2122,7 +2124,8 @@ export default function ChefFlow({
             </>
           )}
           <footer className="workspace-footer">
-            Khana Banao · Made for memorable meals{" "}
+            <span>Khana Banao · Made for memorable meals</span>
+            <LocationAttribution />
             <span>All service timings in IST</span>
           </footer>
         </main>

@@ -1,20 +1,53 @@
 "use client";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { ServiceArea } from "@/lib/domain";
 import type { LocationSuggestion } from "@/lib/service-areas";
 import { searchServiceLocations, selectServiceLocation } from "@/lib/repository";
 
-export function LocationSearch({ region, onSelect }: { region: string; onSelect: (area: ServiceArea) => void }) {
+type Choice =
+  | { kind: "saved"; key: string; name: string; label: string }
+  | { kind: "remote"; key: string; name: string; label: string; suggestion: LocationSuggestion };
+
+export function LocationSearch({
+  region,
+  location,
+  locations,
+  label,
+  required,
+  searchable,
+  onLocation,
+  onSelect,
+}: {
+  region: string;
+  location: string;
+  locations: string[];
+  label: string;
+  required?: boolean;
+  searchable: boolean;
+  onLocation: (location: string) => void;
+  onSelect: (area: ServiceArea) => void;
+}) {
   const id = useId();
-  const [query, setQuery] = useState("");
+  const input = useRef<HTMLInputElement>(null);
+  const selection = useRef<AbortController | null>(null);
+  const [query, setQuery] = useState(location);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const selection = useRef<AbortController | null>(null);
+
   useEffect(() => () => selection.current?.abort(), []);
   useEffect(() => {
-    if (query.trim().length < 3) return;
+    input.current?.setCustomValidity(required && !location ? "Choose a location from the list." : "");
+  }, [location, required]);
+  useEffect(() => {
+    if (!searchable || query.trim().length < 3 || query === location) {
+      setSuggestions([]);
+      return;
+    }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setStatus("Searching locations…");
@@ -31,9 +64,40 @@ export function LocationSearch({ region, onSelect }: { region: string; onSelect:
       }
     }, 400);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [region, query]);
+  }, [location, query, region, searchable]);
 
-  async function choose(suggestion: LocationSuggestion) {
+  const choices = useMemo<Choice[]>(() => {
+    const term = query === location ? "" : query.trim().toLowerCase();
+    const saved = locations
+      .filter((name) => !term || name.toLowerCase().includes(term))
+      .map((name): Choice => ({ kind: "saved", key: `saved:${name}`, name, label: name }));
+    const savedNames = new Set(saved.map((choice) => choice.name.toLowerCase()));
+    return [
+      ...saved,
+      ...suggestions
+        .filter((suggestion) => !savedNames.has(suggestion.name.toLowerCase()))
+        .map((suggestion): Choice => ({
+          kind: "remote",
+          key: `remote:${suggestion.token}`,
+          name: suggestion.name,
+          label: suggestion.label,
+          suggestion,
+        })),
+    ];
+  }, [location, locations, query, suggestions]);
+
+  useEffect(() => setActiveIndex(-1), [query, suggestions]);
+
+  function chooseSaved(name: string) {
+    setQuery(name);
+    setSuggestions([]);
+    setStatus("Location selected.");
+    setError("");
+    setOpen(false);
+    onLocation(name);
+  }
+
+  async function chooseRemote(suggestion: LocationSuggestion) {
     selection.current?.abort();
     const controller = new AbortController();
     selection.current = controller;
@@ -43,9 +107,10 @@ export function LocationSearch({ region, onSelect }: { region: string; onSelect:
     try {
       const area = await selectServiceLocation(suggestion.token, controller.signal);
       if (!controller.signal.aborted) {
-        setQuery("");
+        setQuery(area.name);
         setSuggestions([]);
         setStatus("Location selected.");
+        setOpen(false);
         onSelect(area);
       }
     } catch (failure) {
@@ -58,34 +123,101 @@ export function LocationSearch({ region, onSelect }: { region: string; onSelect:
     }
   }
 
+  function choose(choice: Choice) {
+    if (choice.kind === "saved") chooseSaved(choice.name);
+    else void chooseRemote(choice.suggestion);
+  }
+
   return (
-    <div className="location-search full">
-      <label className="field" htmlFor={id}>
-        <span>Search localities</span>
-        <input
-          id={id} type="search" value={query} maxLength={120} autoComplete="off"
-          disabled={saving} placeholder={`Search an area in ${region === "Delhi" ? "Delhi / NCR" : region}`}
-          aria-describedby={`${id}-hint ${id}-status`}
-          onChange={(e) => { setQuery(e.target.value); setSuggestions([]); setError(""); setStatus(""); }}
-          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
-        />
-      </label>
-      <p id={`${id}-hint`} className="muted small-copy">Choose a saved location above, or type at least 3 characters to find another area.</p>
+    <div
+      className="location-search full"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
+      <div className="field">
+        <label htmlFor={id}>{label}</label>
+        <div className="location-combobox">
+          <input
+            ref={input}
+            id={id}
+            name="location"
+            type="search"
+            role="combobox"
+            value={query}
+            maxLength={120}
+            autoComplete="off"
+            required={required}
+            disabled={!region || saving}
+            placeholder={region ? "Select or type a location" : "Select a region first"}
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls={`${id}-options`}
+            aria-activedescendant={activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
+            aria-describedby={`${id}-hint ${id}-status`}
+            onFocus={() => setOpen(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setSuggestions([]);
+              setError("");
+              setStatus("");
+              setOpen(true);
+              if (location) onLocation("");
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setOpen(true);
+                setActiveIndex((index) => Math.min(index + 1, choices.length - 1));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((index) => Math.max(index - 1, 0));
+              } else if (event.key === "Enter") {
+                if (open) event.preventDefault();
+                if (activeIndex >= 0 && choices[activeIndex]) choose(choices[activeIndex]);
+              } else if (event.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="location-combobox-toggle"
+            disabled={!region || saving}
+            aria-label={open ? "Hide location options" : "Show location options"}
+            onClick={() => {
+              setOpen((shown) => !shown);
+              input.current?.focus();
+            }}
+          >
+            <ChevronDown size={17} aria-hidden="true" />
+          </button>
+          {open && choices.length > 0 && (
+            <ul id={`${id}-options`} className="location-suggestions" role="listbox" aria-label="Location suggestions">
+              {choices.map((choice, index) => (
+                <li key={choice.key} role="none">
+                  <button
+                    id={`${id}-option-${index}`}
+                    type="button"
+                    role="option"
+                    aria-selected={choice.name === location}
+                    disabled={saving}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => choose(choice)}
+                  >
+                    {choice.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+      <p id={`${id}-hint`} className="muted small-copy">
+        {!region ? "Choose a region first." : searchable ? "Choose a saved location or type at least 3 characters to find another area." : "Choose a saved location."}
+      </p>
       <p id={`${id}-status`} className="muted small-copy" role="status">{status}</p>
       {error && <p className="error-text small-copy" role="alert">{error}</p>}
-      {suggestions.length > 0 && (
-        <ul className="location-suggestions" aria-label="Location suggestions">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.token}>
-              <button type="button" disabled={saving} onClick={() => void choose(suggestion)}>{suggestion.label}</button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <small className="location-attribution">
-        Powered by <a href="https://www.geoapify.com/" target="_blank" rel="noreferrer">Geoapify</a>
-        {" · "}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a>
-      </small>
     </div>
   );
 }

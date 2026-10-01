@@ -22,9 +22,12 @@ test("Geoapify locality selection saves a chef profile and survives reload", asy
   await page.getByRole("button", { name: "Explore chef dashboard" }).click();
   await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
   await page.getByLabel("Region you work in").selectOption("Chennai");
-  await page.getByLabel("Search localities").fill("Velachery");
-  await page.getByRole("button", { name: "Velachery, Chennai, Tamil Nadu, India", exact: true }).click();
-  await expect(page.getByLabel("Location you work in")).toHaveValue("Velachery");
+  const location = page.getByLabel("Location you work in");
+  await location.fill("Velachery");
+  await page.getByRole("option", { name: "Velachery, Chennai, Tamil Nadu, India", exact: true }).click();
+  await expect(location).toHaveValue("Velachery");
+  await expect(page.getByLabel("Search localities")).toHaveCount(0);
+  await expect(page.getByText("Powered by Geoapify", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("status").last()).toContainText("Profile saved");
   await page.reload();
@@ -40,13 +43,14 @@ test("location search recovers from provider failure and clears on region change
   await page.getByRole("button", { name: "Create booking", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Service region").selectOption("Chennai");
-  await dialog.getByLabel("Search localities").fill("Velachery");
+  await dialog.getByLabel("Service location").fill("Velachery");
   await expect(dialog.getByRole("alert")).toContainText("Location search is unavailable");
-  await dialog.getByLabel("Service location").selectOption("Adyar");
+  await dialog.getByLabel("Service location").fill("Adyar");
+  await dialog.getByRole("option", { name: "Adyar", exact: true }).click();
   await expect(dialog.getByLabel("Service location")).toHaveValue("Adyar");
   await dialog.getByLabel("Service region").selectOption("Delhi");
   await expect(dialog.getByLabel("Service location")).toHaveValue("");
-  await expect(dialog.getByLabel("Search localities")).toHaveValue("");
+  await expect(dialog.getByLabel("Search localities")).toHaveCount(0);
 });
 
 test("a searched NCR location persists on a new booking", async ({ page }) => {
@@ -60,8 +64,8 @@ test("a searched NCR location persists on a new booking", async ({ page }) => {
   await page.getByRole("button", { name: "Create booking", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Service region").selectOption("Delhi");
-  await dialog.getByLabel("Search localities").fill("Sector 62 Noida");
-  await dialog.getByRole("button", { name: "Sector 62, Noida, India", exact: true }).click();
+  await dialog.getByLabel("Service location").fill("Sector 62 Noida");
+  await dialog.getByRole("option", { name: "Sector 62, Noida, India", exact: true }).click();
   await expect(dialog.getByLabel("Service location")).toHaveValue("Sector 62, Noida");
   await dialog.getByLabel("Customer name").fill("NCR Customer");
   await dialog.getByLabel("Service", { exact: true }).fill("Dinner");
@@ -177,7 +181,8 @@ test("admin creates staff, dishes and bookings and exports analytics", async ({
   await page.getByLabel("Customer name").fill("Prototype Customer");
   await page.getByLabel("Service", { exact: true }).fill("Family lunch");
   await page.getByLabel("Service region").selectOption("Bengaluru");
-  await page.getByLabel("Service location").selectOption("Koramangala");
+  await page.getByLabel("Service location").fill("Koramangala");
+  await page.getByRole("option", { name: "Koramangala", exact: true }).click();
   await page.getByRole("group", { name: "Assigned chef" }).getByRole("radio", { name: /Test Chef/ }).check();
   await page.getByLabel("Scheduled in (IST)").fill("2026-12-15T12:00");
   await page.getByLabel("Scheduled out (IST)").fill("2026-12-15T15:00");
@@ -246,7 +251,8 @@ for (const width of [320, 390, 768, 1440]) {
     const box=await dialog.boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width).toBeLessThanOrEqual(width);
     await dialog.getByLabel('Service region').selectOption('Bengaluru');
-    await dialog.getByLabel('Service location').selectOption('Koramangala');
+    await dialog.getByLabel('Service location').fill('Koramangala');
+    await dialog.getByRole('option',{name:'Koramangala',exact:true}).click();
     await expect(dialog.getByRole('radio',{name:/Arjun Kapoor/})).toBeVisible();
     await dialog.getByRole('radio',{name:/Arjun Kapoor/}).check();
     await dialog.getByRole('button',{name:'Close dialog'}).click();
@@ -283,7 +289,8 @@ test("booking form groups chefs by location and records the service area", async
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Select a region and location to see the chefs who work there.")).toBeVisible();
   await dialog.getByLabel("Service region").selectOption("Bengaluru");
-  await dialog.getByLabel("Service location").selectOption("Koramangala");
+  await dialog.getByLabel("Service location").fill("Koramangala");
+  await dialog.getByRole("option", { name: "Koramangala", exact: true }).click();
   // Arjun Kapoor works in Koramangala, the new chef has no location yet.
   const options = dialog.locator(".chef-picker-options");
   await expect(options.getByText("In Koramangala")).toBeVisible();
@@ -357,7 +364,8 @@ test("a chef without a location must set one before using the dashboard", async 
   const save = page.getByRole("button", { name: "Save & continue" });
   await expect(save).toBeDisabled();
   await page.getByLabel("Region you work in").selectOption("Bengaluru");
-  await page.getByLabel("Location you work in").selectOption("Indiranagar");
+  await page.getByLabel("Location you work in").fill("Indiranagar");
+  await page.getByRole("option", { name: "Indiranagar", exact: true }).click();
   await save.click();
   await expect(page.getByRole("heading", { name: "Hello, Arjun" })).toBeVisible();
   await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
@@ -426,7 +434,8 @@ for (const role of ["chef", "admin"] as const) {
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(390);
       await form.getByLabel("Service region").selectOption("Bengaluru");
-      await form.getByLabel("Service location").selectOption("Koramangala");
+      await form.getByLabel("Service location").fill("Koramangala");
+      await form.getByRole("option", { name: "Koramangala", exact: true }).click();
       await expect(form.getByText("In Koramangala")).toBeVisible();
       await fits("admin booking form");
       await form.getByRole("button", { name: "Close dialog" }).click();

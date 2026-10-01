@@ -3179,15 +3179,20 @@ td {
 .heading-actions { flex-wrap:wrap; }
 .page-heading h1 { line-height:1.15; }
 .page-heading p { line-height:1.6; }
-.location-search { grid-column: 1 / -1; min-width: 0; }
+.location-search { grid-column: auto; min-width: 0; }
 .location-search p { margin: 6px 0; }
 .location-search p:empty { display: none; }
-.location-suggestions { margin: 10px 0; padding: 0; list-style: none; border: 1px solid var(--border, #dce0da); border-radius: 10px; overflow: hidden; }
+.location-combobox { position: relative; }
+.location-combobox input { padding-right: 42px; }
+.location-combobox-toggle { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 40px; display: grid; place-items: center; border-radius: 0 7px 7px 0; color: #435347; background: transparent; }
+.location-combobox-toggle:hover, .location-combobox-toggle:focus-visible { background: #f3f5ee; }
+.location-suggestions { position: absolute; z-index: 50; top: calc(100% + 5px); right: 0; left: 0; max-height: 250px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border, #dce0da); border-radius: 10px; overflow-y: auto; background: white; box-shadow: 0 12px 30px rgba(29, 37, 32, .14); }
 .location-suggestions li + li { border-top: 1px solid var(--border, #dce0da); }
 .location-suggestions button { display: block; width: 100%; min-height: 44px; padding: 12px 14px; border: 0; background: white; text-align: left; font: inherit; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
 .location-suggestions button:hover, .location-suggestions button:focus-visible { background: #f3f5ee; }
+.location-suggestions button[aria-selected="true"] { background: #f9f3d7; font-weight: 600; }
 .location-suggestions button:disabled { opacity: .6; cursor: wait; }
-.location-attribution { display: block; margin-top: 8px; color: #657066; font-size: 11px; }
+.location-attribution { display: block; color: #657066; font-size: 10px; font-weight: 400; }
 .location-attribution a { color: inherit; text-decoration: underline; }
 .form-grid, .content-grid, .profile-grid, .service-layout { min-width:0; }
 .form-grid > *, .content-grid > *, .profile-grid > * { min-width:0; }
