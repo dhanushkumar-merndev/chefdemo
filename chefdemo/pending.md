@@ -70,6 +70,21 @@ order by region, name;
 - [ ] Save a chef profile and a test booking using the new options.
 - [ ] Check that chefs in a different region are listed under **Other areas**, even when both use `All locations`.
 
+## Pending: chef bidding migration
+
+`supabase/migrations/202610190001_chef_bidding.sql` is **not applied** to the live database. It adds:
+- orders, bids and chef type
+- the bidding, deposit and chef-search functions
+- a fix for booking codes
+
+Booking codes currently repeat after booking 9,999, because `lpad(…, 4)` truncates the number. After that, every new booking fails.
+
+Apply it with the same `npx supabase db push --dry-run` / `db push` steps above. Until it is applied, the Orders and Find chefs pages show an error asking for the migration, and the rest of the app works as before. After applying:
+
+- [ ] Every chef is asked for their chef type the next time they open the app.
+- [ ] Post a test order with a deadline a few minutes away. Bid as a chef, close bidding, record the deposit, and check that the chef sees the Upcoming booking.
+- [ ] Optional: schedule `select public.settle_orders();` every minute with pg_cron.
+
 ## Location search notes
 
 [Geoapify Address Autocomplete](https://www.geoapify.com/address-autocomplete/) is integrated. The free tier provides 3,000 credits/day, with one credit per autocomplete request (checked 29 September 2026). The UI includes Geoapify/OpenStreetMap attribution, waits for a typing pause, and cancels outdated searches. The server applies a per-member, per-instance limit of 30 requests/minute; this is not a distributed daily spending cap.

@@ -10,6 +10,7 @@ import {
   CircleHelp,
   Clock3,
   Download,
+  Gavel,
   Home,
   IndianRupee,
   LogOut,
@@ -20,16 +21,22 @@ import {
   Sparkles,
   Star,
   UserRound,
+  UserSearch,
   Users,
   Utensils,
   WalletCards,
 } from "lucide-react";
 import {
   Booking,
+  ChefType,
   Data,
+  OrderRow,
   Profile,
   ServiceArea,
   Status,
+  chefTypeLabel,
+  chefTypeLabels,
+  chefTypes,
   contactOf,
   date,
   dayKey,
@@ -50,6 +57,8 @@ import {
   exportBookings,
 } from "./admin";
 import ServiceDetail from "./service-detail";
+import { ChefOrdersCard, NewOrderModal, OrdersPage, type OrderFocus } from "./orders";
+import { ChefSearch } from "./chef-search";
 import { AreaFields, Brand, Empty, Field, Heading, Modal, Run } from "./ui";
 import { LocationAttribution } from "./location-attribution";
 
@@ -63,7 +72,9 @@ type Page =
   | "support"
   | "analytics"
   | "staff"
-  | "dishes";
+  | "dishes"
+  | "orders"
+  | "chefs";
 const nav = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "bookings", label: "Bookings", icon: CalendarDays },
@@ -72,6 +83,10 @@ const nav = [
   { id: "dishes", label: "Dish library", icon: Utensils },
   { id: "profile", label: "Profile", icon: UserRound },
   { id: "support", label: "Support & help", icon: CircleHelp },
+] as const;
+const marketNav = [
+  { id: "orders", label: "Orders & bidding", icon: Gavel },
+  { id: "chefs", label: "Find chefs", icon: UserSearch },
 ] as const;
 const adminNav = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -536,6 +551,8 @@ function Dashboard({
   go,
   run,
   busy,
+  version,
+  openOrder,
 }: {
   data: Data;
   user: Profile;
@@ -544,6 +561,8 @@ function Dashboard({
   go: (p: Page) => void;
   run: Run;
   busy: boolean;
+  version: number;
+  openOrder: (focus: OrderFocus) => void;
 }) {
   const upcoming = data.bookings
     .filter((b) => b.status === "upcoming")
@@ -769,6 +788,9 @@ function Dashboard({
               </div>
             )}
           </article>
+          {user.role === "chef" && (
+            <ChefOrdersCard version={version} now={now} openOrder={openOrder} />
+          )}
           <article className="card section-gap">
             <div className="card-head">
               <div>
@@ -938,13 +960,14 @@ function CompleteProfile({
 }) {
   const [region, setRegion] = useState(user.region);
   const [location, setLocation] = useState(user.location);
+  const [chefType, setChefType] = useState(user.chef_type ?? "");
   return (
     <div className="loading-screen">
       <ChefHat size={36} />
       <h2>Complete your profile</h2>
       <p>
-        Tell us where you work so we can assign bookings near you. You can
-        change this later in Profile.
+        Tell us where you work and what kind of chef you are, so we can show
+        you orders near you. You can change this later in Profile.
       </p>
       <form
         className="card form-card complete-profile"
@@ -960,8 +983,9 @@ function CompleteProfile({
                 online: user.online,
                 region,
                 location,
+                chef_type: chefType,
               }),
-            "Location saved",
+            "Profile saved",
           );
         }}
       >
@@ -976,9 +1000,10 @@ function CompleteProfile({
             regionLabel="Region you work in"
             locationLabel="Location you work in"
           />
+          <ChefTypeField value={chefType} onChange={setChefType} />
         </div>
         <div className="save-row">
-          <button className="accept btn" disabled={busy || !location}>
+          <button className="accept btn" disabled={busy || !location || !chefType}>
             Save & continue
           </button>
         </div>
@@ -993,6 +1018,31 @@ function CompleteProfile({
       <LocationAttribution />
       {toastElement}
     </div>
+  );
+}
+function ChefTypeField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: ChefType | "") => void;
+}) {
+  return (
+    <Field label="Chef type">
+      <select
+        name="chef_type"
+        value={value}
+        required
+        onChange={(e) => onChange(e.target.value as ChefType | "")}
+      >
+        <option value="">Select chef type</option>
+        {chefTypes.map((t) => (
+          <option key={t} value={t}>
+            {chefTypeLabels[t]}
+          </option>
+        ))}
+      </select>
+    </Field>
   );
 }
 /** Email and mobile are two ways into one account; each must be verified. */
@@ -1123,6 +1173,7 @@ function ProfilePage({
 }) {
   const [region, setRegion] = useState(user.region);
   const [location, setLocation] = useState(user.location);
+  const [chefType, setChefType] = useState(user.chef_type ?? "");
   return (
     <>
       <Heading
@@ -1141,7 +1192,8 @@ function ProfilePage({
           </div>
           <h2>{user.name}</h2>
           <p>
-            {user.role} · {user.cuisine || "Khana Banao team"}
+            {user.role === "chef" ? chefTypeLabel(user.chef_type) : user.role} ·{" "}
+            {user.cuisine || "Khana Banao team"}
           </p>
           <div className="verified-block">{contactOf(user)}</div>
         </article>
@@ -1164,6 +1216,7 @@ function ProfilePage({
                   online: user.online,
                   region,
                   location,
+                  chef_type: chefType,
                 }),
               "Profile saved",
             );
@@ -1216,6 +1269,7 @@ function ProfilePage({
               regionLabel="Region you work in"
               locationLabel="Location you work in"
             />
+            <ChefTypeField value={chefType} onChange={setChefType} />
             </>}<Field label="Account role">
               <input value={user.role} disabled readOnly />
             </Field>
@@ -1349,6 +1403,26 @@ function Support({
   );
 }
 
+/** Order updates for the bell: deposits due and unfilled orders for staff,
+ *  wins awaiting the client's deposit for a chef. Before the bidding
+ *  migration is applied this is empty; the Orders page reports the error. */
+async function orderAlertsFor(data: Data, userId: string) {
+  const role = data.profiles.find((p) => p.id === userId)?.role;
+  try {
+    if (role === "chef")
+      return (await repo.listOrders("awarded", 10)).rows.filter(
+        (o) => o.my_bid?.status === "won",
+      );
+    const [awarded, unfilled] = await Promise.all([
+      repo.listOrders("awarded", 10),
+      repo.listOrders("unfilled", 10),
+    ]);
+    return [...awarded.rows, ...unfilled.rows];
+  } catch {
+    return [];
+  }
+}
+
 export default function ChefFlow({
   initialPage = "dashboard",
 }: {
@@ -1366,6 +1440,11 @@ export default function ChefFlow({
   const [searchRegion, setSearchRegion] = useState("");
   const [searchLocation, setSearchLocation] = useState("");
   const [newBooking, setNewBooking] = useState(false);
+  const [newOrder, setNewOrder] = useState(false);
+  const [orderFocus, setOrderFocus] = useState<OrderFocus | null>(null);
+  // Bumped on every reload so order lists (paged separately) refetch too.
+  const [version, setVersion] = useState(0);
+  const [orderAlerts, setOrderAlerts] = useState<OrderRow[]>([]);
   const [bell, setBell] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -1382,8 +1461,10 @@ export default function ChefFlow({
     try {
       const id = await repo.currentUser();
       setUserId(id);
-      if (id) setData(await repo.loadData());
-      else setData(null);
+      const next = id ? await repo.loadData() : null;
+      setData(next);
+      setOrderAlerts(next ? await orderAlertsFor(next, id!) : []);
+      setVersion((v) => v + 1);
       setError("");
     } catch (e) {
       setError(
@@ -1446,8 +1527,13 @@ export default function ChefFlow({
     setMenuOpen(false);
     setPage(next);
     setServiceId(null);
+    setOrderFocus(null);
     setBell(false);
     window.scrollTo(0, 0);
+  };
+  const openOrder = (focus: OrderFocus) => {
+    go("orders");
+    setOrderFocus(focus);
   };
   const open = (id: string) => {
     setServiceId(id);
@@ -1462,6 +1548,7 @@ export default function ChefFlow({
     else {
       setMenuOpen(false);
       setNewBooking(false);
+      setNewOrder(false);
       setBell(false);
       setServiceId(null);
     }
@@ -1473,7 +1560,7 @@ export default function ChefFlow({
       chefflow: {
         page,
         serviceId,
-        overlay: menuOpen ? "menu" : newBooking ? "booking" : bell ? "bell" : null,
+        overlay: menuOpen ? "menu" : newBooking ? "booking" : newOrder ? "order" : bell ? "bell" : null,
       },
     };
     if (historyRef.current.fromPop) {
@@ -1486,7 +1573,7 @@ export default function ChefFlow({
       return;
     }
     window.history.pushState(entry, "");
-  }, [loaded, page, serviceId, menuOpen, newBooking, bell]);
+  }, [loaded, page, serviceId, menuOpen, newBooking, newOrder, bell]);
   useEffect(() => {
     const onPop = (event: PopStateEvent) => {
       const entry = (event.state as { chefflow?: { page: Page; serviceId: string | null; overlay: string | null } } | null)?.chefflow;
@@ -1496,6 +1583,7 @@ export default function ChefFlow({
       setServiceId(entry.serviceId);
       setMenuOpen(entry.overlay === "menu");
       setNewBooking(entry.overlay === "booking");
+      setNewOrder(entry.overlay === "order");
       setBell(entry.overlay === "bell");
     };
     window.addEventListener("popstate", onPop);
@@ -1505,7 +1593,7 @@ export default function ChefFlow({
   const manager = !!user && user.role !== "chef";
   const shownPage =
     manager && ["dashboard", "ratings"].includes(page) ? "analytics" :
-    !manager && ["analytics", "staff"].includes(page)
+    !manager && ["analytics", "staff", "chefs"].includes(page)
       ? "dashboard"
       : user?.role !== "admin" && page === "staff"
         ? "analytics"
@@ -1517,6 +1605,7 @@ export default function ChefFlow({
         b.status === "requested" ||
         (b.status === "in_progress" && overtime(b, now).minutes > 0),
     ) ?? [];
+  const alertCount = alerts.length + orderAlerts.length;
   const toastElement = toast && (
     <div
       className={`toast show ${toast.error ? "error" : ""}`}
@@ -1571,7 +1660,8 @@ export default function ChefFlow({
       </div>
     );
   if (user.approval_status && user.approval_status !== "approved") return <div className="loading-screen"><ChefHat size={36}/><h2>{user.approval_status === "pending" ? "Waiting for admin approval" : "Registration not approved"}</h2><p>{user.approval_status === "pending" ? "Your registration is saved. An administrator must approve your account before you can access Khana Banao." : "Please contact your administrator to review your registration."}</p><p>{contactOf(user)}</p><button className="accept btn" disabled={busy} onClick={() => run(async () => {}, "Approval status refreshed")}>Check approval status</button><button className="outline-btn" disabled={busy} onClick={() => run(repo.logout, "Signed out")}>Sign out</button>{toastElement}</div>;
-  if (user.role === "chef" && !user.location)
+  // chef_type is undefined until the bidding migration is applied.
+  if (user.role === "chef" && (!user.location || user.chef_type === ""))
     return (
       <CompleteProfile
         user={user}
@@ -1609,6 +1699,7 @@ export default function ChefFlow({
             online: !user.online,
             region: user.region,
             location: user.location,
+            chef_type: user.chef_type ?? "",
           }),
           user.online ? "You are now offline" : "You are now available",
         )
@@ -1637,6 +1728,21 @@ export default function ChefFlow({
               {n.label}
               {n.id === "bookings" && alerts.length > 0 && (
                 <span className="nav-badge">{alerts.length}</span>
+              )}
+            </button>
+          ))}
+          {(manager ? marketNav : marketNav.slice(0, 1)).map((n) => (
+            <button
+              key={n.id}
+              className={`nav-item ${shownPage === n.id ? "active" : ""}`}
+              onClick={() => go(n.id)}
+            >
+              <span className="nav-icon">
+                <n.icon />
+              </span>
+              {n.id === "orders" && !manager ? "Orders & bids" : n.label}
+              {n.id === "orders" && orderAlerts.length > 0 && (
+                <span className="nav-badge">{orderAlerts.length}</span>
               )}
             </button>
           ))}
@@ -1703,7 +1809,7 @@ export default function ChefFlow({
             <div className="crumb">
               Khana Banao /{" "}
               <b>
-                {[...nav, ...adminNav].find((n) => n.id === shownPage)?.label ||
+                {[...nav, ...adminNav, ...marketNav].find((n) => n.id === shownPage)?.label ||
                   "Calendar"}
               </b>
             </div>
@@ -1724,19 +1830,42 @@ export default function ChefFlow({
                   onClick={() => setBell(!bell)}
                 >
                   <Bell />
-                  {alerts.length > 0 && (
-                    <span className="bell-badge">{alerts.length}</span>
+                  {alertCount > 0 && (
+                    <span className="bell-badge">{alertCount}</span>
                   )}
                 </button>
                 {bell && (
                   <div className="flow-notifications">
                     <h3>Notifications</h3>
-                    {!alerts.length && (
+                    {!alertCount && (
                       <Empty
                         title="All caught up"
-                        text="No pending booking requests or overtime alerts."
+                        text="No pending booking requests, order updates or overtime alerts."
                       />
                     )}
+                    {orderAlerts.map((o) => (
+                      <button
+                        key={o.id}
+                        onClick={() => openOrder({ tab: o.status, id: o.id })}
+                      >
+                        <b>
+                          {!manager
+                            ? `You won ${o.code}`
+                            : o.status === "awarded"
+                              ? `Deposit due · ${o.code}`
+                              : `No bids · ${o.code}`}
+                        </b>
+                        <span>
+                          {o.customer} ·{" "}
+                          {!manager
+                            ? `${money(o.my_bid?.amount ?? 0)} · awaiting client deposit`
+                            : o.status === "awarded"
+                              ? `${o.winner_name} won at ${money(o.winning_amount ?? 0)}`
+                              : "Bidding closed without an eligible bid"}
+                        </span>
+                        <small>View order →</small>
+                      </button>
+                    ))}
                     {alerts.map((b) => (
                       <button key={b.id} onClick={() => open(b.id)}>
                         <b>
@@ -1809,6 +1938,8 @@ export default function ChefFlow({
                   go={go}
                   run={run}
                   busy={busy}
+                  version={version}
+                  openOrder={openOrder}
                 />
               )}
               {shownPage === "bookings" && (
@@ -2116,7 +2247,24 @@ export default function ChefFlow({
                 <Dishes data={data} busy={busy} run={run} editable={manager} />
               )}
               {shownPage === "analytics" && manager && (
-                <><div className="admin-quick-actions"><button className="accept btn" onClick={() => setNewBooking(true)}><Plus size={15}/> Create booking</button>{user.role === "admin" && <button className="outline-btn" onClick={() => go("staff")}>Review members ({data.profiles.filter(p => p.approval_status === "pending").length} pending)</button>}<button className="outline-btn" onClick={() => go("bookings")}>Manage all bookings</button></div><Analytics data={data} now={now} /></>
+                <><div className="admin-quick-actions"><button className="accept btn" onClick={() => setNewOrder(true)}><Gavel size={15}/> Post order</button><button className="outline-btn" onClick={() => setNewBooking(true)}><Plus size={15}/> Create booking</button>{user.role === "admin" && <button className="outline-btn" onClick={() => go("staff")}>Review members ({data.profiles.filter(p => p.approval_status === "pending").length} pending)</button>}<button className="outline-btn" onClick={() => go("bookings")}>Manage all bookings</button></div><Analytics data={data} now={now} /></>
+              )}
+              {shownPage === "orders" && (
+                <OrdersPage
+                  key={orderFocus ? `${orderFocus.tab}:${orderFocus.id}` : "orders"}
+                  data={data}
+                  manager={manager}
+                  now={now}
+                  version={version}
+                  busy={busy}
+                  run={run}
+                  focus={orderFocus}
+                  openBooking={open}
+                  onNewOrder={() => setNewOrder(true)}
+                />
+              )}
+              {shownPage === "chefs" && manager && (
+                <ChefSearch areas={data.service_areas} />
               )}
               {shownPage === "staff" && user.role === "admin" && (
                 <Staff data={data} userId={user.id} busy={busy} run={run} />
@@ -2135,11 +2283,11 @@ export default function ChefFlow({
           ? [
               adminNav[0],
               nav[1],
-              nav[2],
+              marketNav[0],
               ...(user.role === "admin" ? [adminNav[1]] : [nav[4]]),
               nav[5],
             ]
-          : [nav[0], nav[1], nav[2], nav[4], nav[5]]
+          : [nav[0], nav[1], marketNav[0], nav[2], nav[5]]
         ).map((n) => (
           <button
             key={n.id}
@@ -2151,7 +2299,9 @@ export default function ChefFlow({
               ? "Home"
               : n.label === "Team & roles"
                 ? "Team"
-                : n.label}
+                : n.id === "orders"
+                  ? "Orders"
+                  : n.label}
           </button>
         ))}
       </nav>
@@ -2159,7 +2309,7 @@ export default function ChefFlow({
         <Modal title={user.role === "admin" ? "Administration" : "Your workspace"} onClose={back}>
           {!manager && <div className="menu-availability">{availabilityToggle}</div>}
           <div className="all-pages">
-            {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}
+            {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"orders",label:"Orders & bidding"},{id:"chefs",label:"Find chefs"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"orders",label:"Orders & bids"},{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}
           </div>
           <div className="save-row">
             <button
@@ -2174,6 +2324,14 @@ export default function ChefFlow({
             </button>
           </div>
         </Modal>
+      )}
+      {newOrder && (
+        <NewOrderModal
+          data={data}
+          busy={busy}
+          run={run}
+          onClose={back}
+        />
       )}
       {newBooking && (
         <NewBookingModal

@@ -88,6 +88,30 @@ Additional charge = `round(minutes × hourly rate / 60, 2)`. No grace period. Li
 
 Photos accept JPG, PNG or WebP, up to 5 MB. Live files are private and displayed using signed URLs. Photos can be replaced while a service is editable. Old replaced objects are retained; production should add a retention/cleanup job.
 
+## Orders & bidding
+
+Migration `202610190001_chef_bidding.sql` adds a second way to fill a service. In this flow the cheapest chef wins:
+
+1. An admin or manager selects **Post order** and enters the customer, service, area, timings, an optional client budget, and a **bidding deadline**. The deadline must be before the service starts.
+2. Approved chefs see open orders in their area under **Orders & bids** and on their dashboard. They can bid if they serve the location and are free at that time. Bids are sealed: a chef sees only their own price, and the kitchen address stays hidden until they win. A chef can revise or withdraw a bid until the deadline.
+3. At the deadline, or when staff select **Close bidding now**, the cheapest bid wins. Equal bids go to whoever offered that price first. A chef never wins two overlapping orders. An order with no eligible bid is marked **No bids**. Staff see the award in the bell as **Deposit due**.
+4. Staff select **Record 20% deposit (simulated)**. This records 20% of the winning bid, confirms the order and assigns the winning chef an **Upcoming** booking at the bid price. From there the normal service workflow applies. The booking shows the deposit paid and the balance due from the client.
+
+While an awarded order waits for its deposit, the winning chef is held for those timings. Neither another order nor a manual booking can take them.
+
+Orders whose deadline has passed are settled when someone next loads an orders list; no scheduler is needed. To settle without anyone viewing, schedule `select public.settle_orders();` every minute with pg_cron (it is granted to `service_role`).
+
+Payment is simulated. No money moves, and the reference is `SIM-<order code>`. To use a real gateway, replace `payDeposit` in `src/lib/repository.ts` with a server route that creates the payment order. A signature-verified webhook should then call `record_deposit`. Do not let the browser mark a payment as paid.
+
+**Find chefs** (staff) searches approved chefs by:
+- region and the location they serve ("All locations" and Delhi/NCR count)
+- chef type, set in the chef's profile and required for chefs
+- minimum experience
+- online now
+- free for a whole time window
+
+Order lists and chef search are paged in the database, so their cost does not grow with the size of the tables or the width of the time window.
+
 ## Roles
 
 | Role | Access |
@@ -112,4 +136,4 @@ pnpm build
 npx supabase db lint --linked
 ```
 
-Unit tests cover overtime boundaries and workflow validation. A PGlite integration test executes the actual migration with mocked Supabase auth/storage schemas and tests RLS, role escalation prevention, photo prerequisites and final charges. Browser tests run an isolated demo server on port 3100, covering chef completion/persistence, admin CRUD/CSV and mobile layouts without mutating the live project.
+Unit tests cover overtime boundaries, workflow validation, bid ranking, settlement and the 20% deposit. `tests/bidding-db.test.ts` applies every migration in PGlite and tests sealed bids, award holds, deposits and chef search. It includes a check with 5,000 chefs, 20,000 bookings and a ten-year availability window. A PGlite integration test executes the actual migration with mocked Supabase auth/storage schemas and tests RLS, role escalation prevention, photo prerequisites and final charges. Browser tests run an isolated demo server on port 3100, covering chef completion/persistence, admin CRUD/CSV and mobile layouts without mutating the live project.

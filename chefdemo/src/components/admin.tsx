@@ -21,6 +21,7 @@ import {
   overtime,
   statusLabels,
   contactOf,
+  chefTypeLabel,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
 import { servesArea } from "@/lib/service-areas";
@@ -567,6 +568,7 @@ export function NewBookingModal({
           {p.location ? `${p.location}, ${p.region}` : "No location set"}
           {outside ? " · outside this area" : ""}
           {p.online ? " · Online" : " · Offline"}
+          {` · ${chefTypeLabel(p.chef_type)} · ${p.experience} yrs`}
           {p.cuisine ? ` · ${p.cuisine}` : ""}
         </small>
       </span>

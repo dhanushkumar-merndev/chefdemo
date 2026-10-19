@@ -182,7 +182,8 @@ test("admin creates staff, dishes and bookings and exports analytics", async ({
   await page.getByLabel("Service", { exact: true }).fill("Family lunch");
   await page.getByLabel("Service region").selectOption("Bengaluru");
   await page.getByLabel("Service location").fill("Koramangala");
-  await page.getByRole("option", { name: "Koramangala", exact: true }).click();
+  // Scoped: the bookings page behind the dialog has its own Koramangala filter option.
+  await page.getByRole("dialog").getByRole("option", { name: "Koramangala", exact: true }).click();
   await page.getByRole("group", { name: "Assigned chef" }).getByRole("radio", { name: /Test Chef/ }).check();
   await page.getByLabel("Scheduled in (IST)").fill("2026-12-15T12:00");
   await page.getByLabel("Scheduled out (IST)").fill("2026-12-15T15:00");

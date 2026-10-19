@@ -19,6 +19,7 @@ import {
   Stage,
   date,
   money,
+  DEPOSIT_PERCENT,
   overtime,
   stageLabels,
   stages,
@@ -358,6 +359,24 @@ export default function ServiceDetail({
                 )}
               </b>
             </div>
+            {!!b.deposit_amount && (
+              <>
+                <div className="bill-line">
+                  <span>Client deposit paid ({DEPOSIT_PERCENT}%)</span>
+                  <b>{money(b.deposit_amount)}</b>
+                </div>
+                <div className="bill-line">
+                  <span>Balance due from client</span>
+                  <b>
+                    {money(
+                      b.base_amount +
+                        (b.actual_out ? b.overtime_amount : ot.amount) -
+                        b.deposit_amount,
+                    )}
+                  </b>
+                </div>
+              </>
+            )}
             <p className="small-copy muted">
               Overtime starts after the scheduled out time, rounded up to the
               next minute. No grace period.
