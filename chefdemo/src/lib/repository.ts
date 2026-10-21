@@ -24,6 +24,8 @@ import {
   chefBusy,
   depositFor,
   matchesChefFilter,
+  orderChangeAllowed,
+  LOCKED_ORDER_MESSAGE,
   settleOrders,
   transition,
   validateBid,
@@ -191,8 +193,36 @@ export async function logout() {
     if (error) throw error;
   } else localStorage.removeItem(userKey);
 }
+// The full locality list (thousands of rows) is read once per session; edits
+// and newly verified localities clear it.
+let areaCache: Promise<ServiceArea[]> | null = null;
+function serviceAreas() {
+  areaCache ??= rpc<ServiceArea[] | null>("service_area_list", {}).then((rows) => {
+    if (!Array.isArray(rows)) throw new Error("Unexpected response from service_area_list");
+    return rows;
+  });
+  areaCache.catch(() => (areaCache = null));
+  return areaCache;
+}
+const localitiesKey = "chefflow-localities-v1";
+/** Adds every downloaded locality (src/lib/localities.json) to demo storage
+ *  once. Imported on demand so live users never download the list. */
+async function addDemoLocalities() {
+  if (localStorage.getItem(localitiesKey)) return;
+  const { default: list } = (await import("./localities.json")) as { default: Record<string, string[]> };
+  const data = localData();
+  data.service_areas = mergeServiceAreas(
+    data.service_areas,
+    Object.entries(list).flatMap(([region, names]) =>
+      names.map((name) => ({ id: crypto.randomUUID(), region, name, active: true })),
+    ),
+  );
+  saveLocal(data);
+  localStorage.setItem(localitiesKey, "1");
+}
 export async function loadData(): Promise<Data> {
   if (!supabase) {
+    await addDemoLocalities();
     const data = localData();
     const user = actor(data);
     if (user.role !== "chef") return data;
@@ -216,12 +246,12 @@ export async function loadData(): Promise<Data> {
     "reviews",
     "tickets",
     "staff_access",
-    "service_areas",
   ];
-  const results = await Promise.all(
-    tables.map((t) => supabase!.from(t).select("*")),
-  );
-  const error = results.find((r) => r.error)?.error;
+  const [results, areas] = await Promise.all([
+    Promise.all(tables.map((t) => supabase!.from(t).select("*"))),
+    serviceAreas().catch((e: Error) => e),
+  ]);
+  const error = results.find((r) => r.error)?.error ?? (areas instanceof Error ? areas : null);
   if (error)
     throw new Error(
       `${error.message}. Check that the Supabase migration has been applied.`,
@@ -234,7 +264,7 @@ export async function loadData(): Promise<Data> {
     reviews: results[4].data,
     tickets: results[5].data,
     staff_access: results[6].data,
-    service_areas: results[7].data,
+    service_areas: areas,
   } as unknown as Data;
 }
 
@@ -267,6 +297,7 @@ export async function selectServiceLocation(token: string, signal: AbortSignal):
     data.service_areas = mergeServiceAreas(data.service_areas, [area]);
     saveLocal(data);
   }
+  areaCache = null;
   return area;
 }
 export async function actOnBooking(
@@ -815,4 +846,88 @@ export async function searchChefs(
     limit,
     offset,
   );
+}
+
+// ---- Admin editing ----
+
+/** Adds a location, or turns one on or off (administrators). */
+export async function saveServiceArea(region: string, name: string, active: boolean) {
+  region = region.trim();
+  name = name.trim();
+  if (!region || !name || name.length > 80)
+    throw new Error("Enter a location name (up to 80 characters).");
+  if (supabase) {
+    await rpc("save_service_area", { p_region: region, p_name: name, p_active: active });
+    areaCache = null;
+    return;
+  }
+  const data = localData();
+  requireAdmin(data);
+  const existing = data.service_areas.find((a) => a.region === region && a.name.toLowerCase() === name.toLowerCase());
+  if (existing) existing.active = active;
+  else data.service_areas.push({ id: crypto.randomUUID(), region, name, active });
+  saveLocal(data);
+}
+/** Renames a location and carries the name to the chefs, open orders and
+ *  unfinished bookings that use it (rename_service_area in SQL). */
+export async function renameServiceArea(id: string, name: string) {
+  name = name.trim();
+  if (!name || name.length > 80) throw new Error("Enter a location name (up to 80 characters).");
+  if (supabase) {
+    await rpc("rename_service_area", { p_id: id, p_name: name });
+    areaCache = null;
+    return;
+  }
+  const data = localData();
+  requireAdmin(data);
+  const area = data.service_areas.find((a) => a.id === id);
+  if (!area) throw new Error("Location not found.");
+  if (area.name === "All locations" || (area.region === "Delhi" && area.name === "NCR"))
+    throw new Error("This built-in location cannot be renamed.");
+  if (area.name === name) return;
+  if (data.service_areas.some((a) => a.id !== id && a.region === area.region && a.name.toLowerCase() === name.toLowerCase()))
+    throw new Error(`A location with this name already exists in ${area.region}.`);
+  const old = area.name;
+  const here = (x: { region: string; location: string }) => x.region === area.region && x.location === old;
+  for (const p of data.profiles) if (here(p)) p.location = name;
+  for (const o of data.orders) if (here(o) && ["open", "awarded", "unfilled"].includes(o.status)) o.location = name;
+  for (const b of data.bookings) if (here(b) && ["requested", "upcoming", "in_progress"].includes(b.status)) b.location = name;
+  area.name = name;
+  saveLocal(data);
+}
+export type ChefEdit = Pick<Profile, "name" | "region" | "location" | "experience" | "cuisine" | "online"> & {
+  chef_type: NonNullable<Profile["chef_type"]>;
+};
+/** An administrator edits a chef's work details (not their sign-in phone or email). */
+export async function adminUpdateChef(id: string, input: ChefEdit) {
+  if (!input.name.trim()) throw new Error("Enter the chef's name.");
+  if (!input.region || !input.location) throw new Error("Select the region and location this chef works in.");
+  if (!input.chef_type) throw new Error("Select a chef type from the list.");
+  if (!Number.isInteger(input.experience) || input.experience < 0 || input.experience > 80)
+    throw new Error("Experience must be between 0 and 80 years.");
+  if (supabase) return rpc("admin_update_chef", { p_id: id, p_input: input });
+  const data = localData();
+  requireAdmin(data);
+  const chef = data.profiles.find((p) => p.id === id && p.role === "chef");
+  if (!chef) throw new Error("Chef not found.");
+  Object.assign(chef, { ...input, name: input.name.trim(), cuisine: input.cuisine.slice(0, 120) });
+  saveLocal(data);
+}
+/** Staff edit an order while it is open; terms chefs priced lock once they bid. */
+export async function updateOrder(id: string, input: NewOrder) {
+  validateOrder(input);
+  if (supabase) return rpc("update_order", { p_order: id, p_input: input });
+  const data = localData();
+  requireManager(data);
+  const order = localOrder(data, id);
+  if (order.status !== "open") throw new Error("Only an order that is open for bids can be edited.");
+  const changedArea = order.region !== input.region || order.location !== input.location;
+  if (changedArea && !data.service_areas.some((a) => a.region === input.region && a.name === input.location && a.active))
+    throw new Error("Choose a location from the list.");
+  if (input.dish_ids.some((d) => !data.dishes.some((x) => x.id === d && x.active)))
+    throw new Error("Select active dishes.");
+  const hasBids = data.bids.some((b) => b.order_id === id && b.status === "active");
+  if (!orderChangeAllowed(order, input, hasBids)) throw new Error(LOCKED_ORDER_MESSAGE);
+  Object.assign(order, input);
+  saveLocal(data);
 }

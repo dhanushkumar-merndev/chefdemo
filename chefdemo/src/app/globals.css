@@ -3512,3 +3512,14 @@ td {
   .bid-list li { flex-direction: column; }
   .bid-amount { flex-direction: row; align-items: center; }
 }
+.location-suggestions .location-more { padding: 10px 14px; color: var(--muted); font-size: 11px; background: #fafaf7; }
+
+/* Service locations (admin) */
+.area-toolbar { display: grid; grid-template-columns: 1fr 2fr; gap: 13px; }
+.area-add { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; margin: 14px 0 8px; }
+.area-add .accept { min-height: 44px; }
+.table-card td small { display: block; }
+@media (max-width: 670px) {
+  .area-toolbar, .area-add { grid-template-columns: 1fr; }
+}
+.chef-result .chef-edit { margin-left: 10px; }

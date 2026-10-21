@@ -22,7 +22,7 @@ export default defineConfig({
     launchOptions: { slowMo: Number(process.env.SLOWMO ?? 0) },
   },
   projects: [
-    { name: "demo", testMatch: /(workflow|bidding)\.spec\.ts/, use: { baseURL: "http://127.0.0.1:3100" } },
+    { name: "demo", testMatch: /(workflow|bidding|admin-editing)\.spec\.ts/, use: { baseURL: "http://127.0.0.1:3100" } },
     { name: "sms", testMatch: "sms-ui.spec.ts", use: { baseURL: "http://127.0.0.1:3101" } },
   ],
   webServer: [

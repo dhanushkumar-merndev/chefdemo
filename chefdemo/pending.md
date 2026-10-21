@@ -85,6 +85,27 @@ Remaining checks on the live app:
 - [ ] Post a test order with a deadline a few minutes away. Bid as a chef, close bidding, record the deposit, and check that the chef sees the Upcoming booking.
 - [ ] Optional: schedule `select public.settle_orders();` every minute with pg_cron.
 
+## Full locality list and admin editing (not yet applied)
+
+Two new migrations:
+
+- `202610210001_service_area_localities.sql` adds 3,952 localities (Bengaluru 726, Chennai 504, Hyderabad 572, Mumbai 594, Delhi 838, Rajasthan 718). Existing rows are left alone.
+- `202610210002_admin_editing.sql` adds `service_area_list()`, `admin_update_chef`, `update_order`, `rename_service_area` and an index on orders by place.
+
+Apply the migrations **before** deploying the new app. The new app loads locations through `service_area_list()` and shows an error until that function exists. The migrations only add rows and functions, so the app that is live now keeps working after they are applied.
+
+```bash
+npx supabase db push --dry-run   # should list only the two migrations above
+npx supabase db push
+```
+
+Then check on the live app:
+
+- [ ] As a chef, Profile → Location you work in shows "Showing 50 of …" for the region, and typing narrows it.
+- [ ] As an admin, edit a chef from Find chefs, and check that the change shows.
+- [ ] Post a test order, edit it, bid on it as a chef, then check that guests and timings are locked in Edit order.
+- [ ] Administration → Service locations: add, rename and turn off a test location.
+
 ## Location search notes
 
 [Geoapify Address Autocomplete](https://www.geoapify.com/address-autocomplete/) is integrated. The free tier provides 3,000 credits/day, with one credit per autocomplete request (checked 29 September 2026). The UI includes Geoapify/OpenStreetMap attribution, waits for a typing pause, and cancels outdated searches. The server applies a per-member, per-instance limit of 30 requests/minute; this is not a distributed daily spending cap.

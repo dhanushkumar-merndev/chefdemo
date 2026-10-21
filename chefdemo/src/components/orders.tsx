@@ -6,6 +6,7 @@ import {
   Clock3,
   Gavel,
   MapPin,
+  Pencil,
   Plus,
   Timer,
 } from "lucide-react";
@@ -20,6 +21,8 @@ import {
   chefTypeLabel,
   date,
   depositFor,
+  fromIstInput,
+  istInputValue,
   money,
   orderStatusLabels,
   time,
@@ -198,18 +201,21 @@ function OrderCard({
 
 function StaffActions({
   o,
+  data,
   busy,
   run,
   version,
   openBooking,
 }: {
   o: OrderRow;
+  data: Data;
   busy: boolean;
   run: Run;
   version: number;
   openBooking: (id: string) => void;
 }) {
   const [bids, setBids] = useState<BidRow[] | null>(null);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
     let current = true;
@@ -290,6 +296,11 @@ function StaffActions({
             <Gavel size={14} /> Close bidding now
           </button>
         )}
+        {o.status === "open" && (
+          <button className="outline-btn" disabled={busy} onClick={() => setEditing(true)}>
+            <Pencil size={14} /> Edit order
+          </button>
+        )}
         {o.status === "awarded" && (
           <button
             className="accept btn"
@@ -319,6 +330,9 @@ function StaffActions({
           </button>
         )}
       </div>
+      {editing && (
+        <OrderFormModal data={data} run={run} busy={busy} order={o} onClose={() => setEditing(false)} />
+      )}
     </>
   );
 }
@@ -672,52 +686,68 @@ export function ChefOrdersCard({
   );
 }
 
-const ist = (value: string) => new Date(value + ":00+05:30").toISOString();
-
-export function NewOrderModal({
+/** Posts a new order, or edits `order` while it is open for bids. */
+export function OrderFormModal({
   data,
   run,
   busy,
   onClose,
+  order,
 }: {
   data: Data;
   run: Run;
   busy: boolean;
   onClose: () => void;
+  order?: OrderRow;
 }) {
-  const [region, setRegion] = useState("");
-  const [location, setLocation] = useState("");
+  const [region, setRegion] = useState(order?.region ?? "");
+  const [location, setLocation] = useState(order?.location ?? "");
+  const locked = !!order && (order.bid_count ?? 0) > 0;
+  const time = (iso: string | undefined) => (iso ? istInputValue(iso) : undefined);
   return (
-    <Modal title="Post order" onClose={onClose}>
+    <Modal title={order ? `Edit order ${order.code}` : "Post order"} onClose={onClose}>
       <p className="small-copy muted">
-        Chefs who serve this area and are free at this time can bid until the
-        deadline. The lowest bid wins; the chef is assigned once the client
-        pays the {DEPOSIT_PERCENT}% deposit. All times are in IST.
+        {order
+          ? locked
+            ? "Chefs have already bid, so the place, timings, guests, budget and overtime rate are fixed. You can still change the customer, address, notes, dishes and deadline."
+            : "Change anything until a chef bids. All times are in IST."
+          : `Chefs who serve this area and are free at this time can bid until the deadline. The lowest bid wins; the chef is assigned once the client pays the ${DEPOSIT_PERCENT}% deposit. All times are in IST.`}
       </p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();
           const f = new FormData(e.currentTarget);
           const get = (key: string) => String(f.get(key) ?? "");
-          if (
-            await run(
-              () =>
-                repo.createOrder({
+          const input = {
                   customer: get("customer"),
                   service: get("service"),
                   address: get("address"),
                   region,
                   location,
                   guests: Number(get("guests")),
-                  scheduled_start: ist(get("start")),
-                  scheduled_end: ist(get("end")),
-                  bid_deadline: ist(get("deadline")),
+                  scheduled_start: fromIstInput(get("start")),
+                  scheduled_end: fromIstInput(get("end")),
+                  bid_deadline: fromIstInput(get("deadline")),
                   overtime_rate: Number(get("rate")),
                   max_budget: get("budget") ? Number(get("budget")) : null,
                   dish_ids: f.getAll("dishes").map(String),
                   notes: get("notes"),
-                }),
-              "Order posted · chefs can now bid",
+                  // Locked terms are sent exactly as stored: the inputs only
+                  // show minutes, and any difference would read as a change.
+                  ...(locked && {
+                    region: order.region,
+                    location: order.location,
+                    guests: order.guests,
+                    scheduled_start: order.scheduled_start,
+                    scheduled_end: order.scheduled_end,
+                    max_budget: order.max_budget,
+                    overtime_rate: order.overtime_rate,
+                  }),
+                };
+          if (
+            await run(
+              () => (order ? repo.updateOrder(order.id, input) : repo.createOrder(input)),
+              order ? `Order ${order.code} updated` : "Order posted · chefs can now bid",
             )
           )
             onClose();
@@ -725,44 +755,50 @@ export function NewOrderModal({
       >
         <div className="form-grid">
           <Field label="Customer name">
-            <input name="customer" required maxLength={120} />
+            <input name="customer" required maxLength={120} defaultValue={order?.customer} />
           </Field>
           <Field label="Service">
-            <input name="service" required placeholder="Private dinner" maxLength={160} />
+            <input name="service" required placeholder="Private dinner" maxLength={160} defaultValue={order?.service} />
           </Field>
-          <AreaFields
-            areas={data.service_areas}
-            region={region}
-            location={location}
-            onRegion={setRegion}
-            onLocation={setLocation}
-            required
-            regionLabel="Service region"
-            locationLabel="Service location"
-          />
+          {locked ? (
+            <Field label="Service location" full>
+              <input value={`${location}, ${region}`} readOnly className="disabled-field" />
+            </Field>
+          ) : (
+            <AreaFields
+              areas={data.service_areas}
+              region={region}
+              location={location}
+              onRegion={setRegion}
+              onLocation={setLocation}
+              required
+              regionLabel="Service region"
+              locationLabel="Service location"
+            />
+          )}
           <Field label="Guests">
-            <input name="guests" type="number" min={1} max={500} required defaultValue={10} />
+            <input name="guests" type="number" min={1} max={500} required defaultValue={order?.guests ?? 10} readOnly={locked} />
           </Field>
           <Field label="Bidding closes (IST)">
-            <input name="deadline" type="datetime-local" required />
+            <input name="deadline" type="datetime-local" required defaultValue={time(order?.bid_deadline)} />
           </Field>
           <Field label="Scheduled in (IST)">
-            <input name="start" type="datetime-local" required />
+            <input name="start" type="datetime-local" required defaultValue={time(order?.scheduled_start)} readOnly={locked} />
           </Field>
           <Field label="Scheduled out (IST)">
-            <input name="end" type="datetime-local" required />
+            <input name="end" type="datetime-local" required defaultValue={time(order?.scheduled_end)} readOnly={locked} />
           </Field>
           <Field label="Client budget (₹, optional)">
-            <input name="budget" type="number" min={1} max={1000000} step="0.01" />
+            <input name="budget" type="number" min={1} max={1000000} step="0.01" defaultValue={order?.max_budget ?? undefined} readOnly={locked} />
           </Field>
           <Field label="Overtime rate (₹/hour)">
-            <input name="rate" type="number" min={0} max={1000000} step="0.01" required defaultValue={300} />
+            <input name="rate" type="number" min={0} max={1000000} step="0.01" required defaultValue={order?.overtime_rate ?? 300} readOnly={locked} />
           </Field>
           <Field label="Kitchen address" full>
-            <input name="address" required maxLength={500} />
+            <input name="address" required maxLength={500} defaultValue={order?.address ?? undefined} />
           </Field>
           <Field label="Customer notes" full>
-            <textarea name="notes" rows={2} maxLength={2000} />
+            <textarea name="notes" rows={2} maxLength={2000} defaultValue={order?.notes} />
           </Field>
         </div>
         <p className="small-copy">Suggested dishes</p>
@@ -771,14 +807,14 @@ export function NewOrderModal({
             .filter((d) => d.active)
             .map((d) => (
               <label className="checkbox-label" key={d.id}>
-                <input type="checkbox" name="dishes" value={d.id} />
+                <input type="checkbox" name="dishes" value={d.id} defaultChecked={order?.dish_ids.includes(d.id)} />
                 {d.name}
               </label>
             ))}
         </div>
         <div className="save-row">
           <button className="accept btn" disabled={busy}>
-            Post order
+            {order ? "Save changes" : "Post order"}
           </button>
         </div>
       </form>

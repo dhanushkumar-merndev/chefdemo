@@ -5,6 +5,9 @@ import type { ServiceArea } from "@/lib/domain";
 import type { LocationSuggestion } from "@/lib/service-areas";
 import { searchServiceLocations, selectServiceLocation } from "@/lib/repository";
 
+// A city can have several hundred saved localities; the list shows this many
+// matches at a time and typing narrows it.
+const SHOWN = 50;
 type Choice =
   | { kind: "saved"; key: string; name: string; label: string }
   | { kind: "remote"; key: string; name: string; label: string; suggestion: LocationSuggestion };
@@ -66,12 +69,16 @@ export function LocationSearch({
     return () => { clearTimeout(timer); controller.abort(); };
   }, [location, query, region, searchable]);
 
+  const term = query === location ? "" : query.trim().toLowerCase();
+  const matching = useMemo(
+    () => locations.filter((name) => !term || name.toLowerCase().includes(term)),
+    [locations, term],
+  );
   const choices = useMemo<Choice[]>(() => {
-    const term = query === location ? "" : query.trim().toLowerCase();
-    const saved = locations
-      .filter((name) => !term || name.toLowerCase().includes(term))
+    const saved = matching
+      .slice(0, SHOWN)
       .map((name): Choice => ({ kind: "saved", key: `saved:${name}`, name, label: name }));
-    const savedNames = new Set(saved.map((choice) => choice.name.toLowerCase()));
+    const savedNames = new Set(matching.map((name) => name.toLowerCase()));
     return [
       ...saved,
       ...suggestions
@@ -84,7 +91,7 @@ export function LocationSearch({
           suggestion,
         })),
     ];
-  }, [location, locations, query, suggestions]);
+  }, [matching, suggestions]);
 
   useEffect(() => setActiveIndex(-1), [query, suggestions]);
 
@@ -209,12 +216,23 @@ export function LocationSearch({
                   </button>
                 </li>
               ))}
+              {matching.length > SHOWN && (
+                <li role="presentation" className="location-more">
+                  Showing {SHOWN} of {matching.length} — type to narrow the list
+                </li>
+              )}
             </ul>
           )}
         </div>
       </div>
       <p id={`${id}-hint`} className="muted small-copy">
-        {!region ? "Choose a region first." : searchable ? "Choose a saved location or type at least 3 characters to find another area." : "Choose a saved location."}
+        {!region
+          ? "Choose a region first."
+          : !searchable
+            ? "Choose a saved location."
+            : term && !matching.length && term.length < 3
+              ? `Not in the list — keep typing (3+ letters) to search all of ${region}.`
+              : "Pick your area from the list. Can't find it? Type its name and we'll look it up."}
       </p>
       <p id={`${id}-status`} className="muted small-copy" role="status">{status}</p>
       {error && <p className="error-text small-copy" role="alert">{error}</p>}

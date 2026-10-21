@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Pencil } from "lucide-react";
 import {
   ChefFilter,
   ChefResult,
@@ -13,8 +13,9 @@ import {
   contactOf,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
-import { AreaFields, Empty, Field, Heading } from "./ui";
+import { AreaFields, Empty, Field, Heading, Run } from "./ui";
 import { Pager } from "./orders";
+import { EditChefModal } from "./admin";
 
 const PAGE_SIZE = 12;
 const blank: ChefFilter = {
@@ -31,7 +32,22 @@ const ist = (value: string) =>
 
 /** Staff search over approved chefs: area, type, experience and availability.
  *  Filtering and paging happen in the database (search_chefs). */
-export function ChefSearch({ areas }: { areas: ServiceArea[] }) {
+export function ChefSearch({
+  areas,
+  canEdit,
+  busy,
+  run,
+  version,
+}: {
+  areas: ServiceArea[];
+  /** Administrators can edit a chef's details from the results. */
+  canEdit: boolean;
+  busy: boolean;
+  run: Run;
+  /** Bumped on every workspace reload, so results refresh after an edit. */
+  version: number;
+}) {
+  const [editing, setEditing] = useState<ChefResult | null>(null);
   const [region, setRegion] = useState("");
   const [location, setLocation] = useState("");
   const [filter, setFilter] = useState<ChefFilter>(blank);
@@ -52,7 +68,7 @@ export function ChefSearch({ areas }: { areas: ServiceArea[] }) {
     return () => {
       current = false;
     };
-  }, [filter, offset]);
+  }, [filter, offset, version]);
   const available = Boolean(filter.start && filter.end);
   return (
     <>
@@ -165,6 +181,16 @@ export function ChefSearch({ areas }: { areas: ServiceArea[] }) {
               <span className={`status-pill ${c.online ? "completed" : ""}`}>
                 {c.online ? "Online" : "Offline"}
               </span>
+              {canEdit && (
+                <button
+                  className="text-button chef-edit"
+                  aria-label={`Edit ${c.name}`}
+                  disabled={busy}
+                  onClick={() => setEditing(c)}
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+              )}
             </div>
           </article>
         ))}
@@ -174,6 +200,15 @@ export function ChefSearch({ areas }: { areas: ServiceArea[] }) {
       )}
       {result && (
         <Pager offset={offset} total={result.total} limit={PAGE_SIZE} onOffset={setOffset} />
+      )}
+      {editing && (
+        <EditChefModal
+          chef={{ ...editing, chef_type: editing.chef_type ?? "" }}
+          areas={areas}
+          busy={busy}
+          run={run}
+          onClose={() => setEditing(null)}
+        />
       )}
     </>
   );

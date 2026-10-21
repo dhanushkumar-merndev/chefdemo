@@ -6,16 +6,18 @@ const pixel = Buffer.from(
 );
 const upload = { name: "kitchen.png", mimeType: "image/png", buffer: pixel };
 
+// T Nagar is not in the downloaded locality list, so the chef types it and
+// picks the Geoapify-verified suggestion.
 test("Geoapify locality selection saves a chef profile and survives reload", async ({ page }) => {
   await page.route("**/api/locations**", async (route) => {
     if (route.request().method() === "POST") {
-      expect(route.request().postDataJSON()).toEqual({ token: "verified-velachery" });
-      await route.fulfill({ json: { area: { id: "geo-velachery", region: "Chennai", name: "Velachery", active: true } } });
+      expect(route.request().postDataJSON()).toEqual({ token: "verified-tnagar" });
+      await route.fulfill({ json: { area: { id: "geo-tnagar", region: "Chennai", name: "T Nagar", active: true } } });
     } else {
       const url = new URL(route.request().url());
       expect(url.searchParams.get("region")).toBe("Chennai");
-      expect(url.searchParams.get("q")).toBe("Velachery");
-      await route.fulfill({ json: { suggestions: [{ name: "Velachery", label: "Velachery, Chennai, Tamil Nadu, India", token: "verified-velachery" }] } });
+      expect(url.searchParams.get("q")).toBe("T Nagar");
+      await route.fulfill({ json: { suggestions: [{ name: "T Nagar", label: "T Nagar, Chennai, Tamil Nadu, India", token: "verified-tnagar" }] } });
     }
   });
   await page.goto("/");
@@ -23,16 +25,16 @@ test("Geoapify locality selection saves a chef profile and survives reload", asy
   await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
   await page.getByLabel("Region you work in").selectOption("Chennai");
   const location = page.getByLabel("Location you work in");
-  await location.fill("Velachery");
-  await page.getByRole("option", { name: "Velachery, Chennai, Tamil Nadu, India", exact: true }).click();
-  await expect(location).toHaveValue("Velachery");
+  await location.fill("T Nagar");
+  await page.getByRole("option", { name: "T Nagar, Chennai, Tamil Nadu, India", exact: true }).click();
+  await expect(location).toHaveValue("T Nagar");
   await expect(page.getByLabel("Search localities")).toHaveCount(0);
   await expect(page.getByText("Powered by Geoapify", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.getByRole("status").last()).toContainText("Profile saved");
   await page.reload();
   await page.locator(".sidebar").getByRole("button", { name: "Profile" }).click();
-  await expect(page.getByLabel("Location you work in")).toHaveValue("Velachery");
+  await expect(page.getByLabel("Location you work in")).toHaveValue("T Nagar");
 });
 
 test("location search recovers from provider failure and clears on region change", async ({ page }) => {
@@ -157,7 +159,7 @@ test("admin creates staff, dishes and bookings and exports analytics", async ({
   await page
     .getByRole("button", { name: "Add staff member", exact: true })
     .click();
-  await expect(page.getByRole("cell", { name: "Test Chef" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Test Chef", exact: true })).toBeVisible();
   const staffRow=page.getByRole("row").filter({has:page.getByRole("cell",{name:"Test Chef",exact:true})});
   await expect(staffRow).toContainText("pending");
   await staffRow.getByRole("button",{name:"Approve",exact:true}).click();

@@ -149,19 +149,31 @@ export function Modal({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedOutside = useRef(false);
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
     return () => dialog.close();
   }, []);
+  // The dialog's own padding is also e.target === dialog, and so is the click
+  // after a drag that ends outside a field. Only a press and release both on
+  // the backdrop (outside the dialog's box) closes it.
+  const outside = (e: React.MouseEvent) => {
+    const r = ref.current!.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
   return (
     <dialog
       ref={ref}
       className="flow-modal"
       aria-label={title}
       onCancel={onClose}
+      onPointerDown={(e) => {
+        pressedOutside.current = e.target === e.currentTarget && outside(e);
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (pressedOutside.current && e.target === e.currentTarget && outside(e)) onClose();
+        pressedOutside.current = false;
       }}
     >
       <div className="modal-top">

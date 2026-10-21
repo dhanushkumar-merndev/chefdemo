@@ -68,7 +68,15 @@ Limits live in `LIMITS` in `src/lib/sms-login.ts` (counters in `sms_rate_counter
 
 Set the server-only `GEOAPIFY_API_KEY` in `.env` and in your hosting environment. Live mode also uses the server-only `SUPABASE_SECRET_KEY` (or `SUPABASE_SERVICE_ROLE_KEY`) to register verified locations. Restart/redeploy after changing environment variables.
 
-In Complete your profile, Profile, or Create booking, choose a region and use **Search localities**. Searches begin after three characters and a typing pause. The existing location dropdown remains available. Selecting a suggestion adds that verified locality to `service_areas` before saving the profile or booking, so no new schema migration is needed for search. The existing expansion migration is still required for the predefined All locations/NCR entries; see [pending.md](pending.md).
+Every location field (Complete your profile, Profile, Create booking, Post order, Edit chef) lists all saved localities of the chosen region. The list shows 50 matches at a time; typing narrows it. If an area is not listed, typing three or more letters searches Geoapify after a typing pause. Selecting a suggestion adds that verified locality to `service_areas` before saving the profile or booking.
+
+The saved list comes from OpenStreetMap through the Geoapify Places API: suburbs, neighbourhoods and quarters inside each city, NCR cities for Delhi, and the towns of Rajasthan. Outside the main city they are named "Locality, City" (for example "Sector 29, Gurugram"). To refresh it, run:
+
+```bash
+node --env-file=.env scripts/fetch-localities.mjs
+```
+
+This rewrites `src/lib/localities.json` (demo mode) and `supabase/migrations/202610210001_service_area_localities.sql` (live). The migration inserts with `on conflict (region, name) do nothing`, so it never re-enables a turned-off location or touches renamed ones. A changed list needs a new migration file for databases that already applied this one. Live mode loads the list through the `service_area_list()` RPC, which returns one JSON array and is not cut off at PostgREST's 1,000-row limit.
 
 `/api/locations` keeps the provider key private, verifies live users are approved, filters suggestions to India and the selected region, and signs results for selection. Signed suggestions expire after 15 minutes; arbitrary names cannot be registered through this endpoint. Existing disabled areas are never reactivated. Search and selection are limited to 30 requests/minute per member per server instance; production scaling may need a shared quota limiter. Demo mode registers selections only in browser storage.
 
@@ -112,6 +120,14 @@ Payment is simulated. No money moves, and the reference is `SIM-<order code>`. T
 
 Order lists and chef search are paged in the database, so their cost does not grow with the size of the tables or the width of the time window.
 
+## Admin editing
+
+Migration `202610210002_admin_editing.sql` adds:
+
+- **Edit chef** (administrators): the **Edit** button on a chef in **Find chefs**, or in the Details column of **Team & roles**. Name, region/location, chef type, experience, cuisine and online status can be changed. Mobile number and email cannot, because they are the chef's sign-in methods.
+- **Edit order** (administrators and managers): the **Edit order** button on an open order. Before any chef bids, everything can change. Once a chef has bid, only the customer, address, notes, dishes and bidding deadline can change. Place, timings, guests, budget and overtime rate are locked, because the bids were priced on them; to change those, cancel the order and post a new one. Awarded and confirmed orders cannot be edited.
+- **Service locations** (administrators, under Administration): search a region's locations, add one, rename one, or turn one off. A rename carries over to chef profiles, open or awarded orders and unfinished bookings; completed bookings keep the old name. A turned-off location disappears from new choices, but chefs and bookings already using it keep it. The built-in "All locations" and Delhi "NCR" entries cannot be renamed.
+
 ## Roles
 
 | Role | Access |
@@ -136,4 +152,4 @@ pnpm build
 npx supabase db lint --linked
 ```
 
-Unit tests cover overtime boundaries, workflow validation, bid ranking, settlement and the 20% deposit. `tests/bidding-db.test.ts` applies every migration in PGlite and tests sealed bids, award holds, deposits and chef search. It includes a check with 5,000 chefs, 20,000 bookings and a ten-year availability window. A PGlite integration test executes the actual migration with mocked Supabase auth/storage schemas and tests RLS, role escalation prevention, photo prerequisites and final charges. Browser tests run an isolated demo server on port 3100, covering chef completion/persistence, admin CRUD/CSV and mobile layouts without mutating the live project.
+Unit tests cover overtime boundaries, workflow validation, bid ranking, settlement and the 20% deposit. `tests/bidding-db.test.ts` applies every migration in PGlite and tests sealed bids, award holds, deposits and chef search. It includes a check with 5,000 chefs, 20,000 bookings and a ten-year availability window. `tests/admin-editing-db.test.ts` covers the full locality list, chef and order editing rules and location renames. A PGlite integration test executes the actual migration with mocked Supabase auth/storage schemas and tests RLS, role escalation prevention, photo prerequisites and final charges. Browser tests run an isolated demo server on port 3100, covering chef completion/persistence, admin CRUD/CSV and mobile layouts without mutating the live project.

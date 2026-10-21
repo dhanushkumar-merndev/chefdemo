@@ -589,3 +589,27 @@ export function matchesChefFilter(
     (!f.start || !f.end || !busy(p.id))
   );
 }
+
+/** Matches update_order in SQL: once a chef has an active bid, the terms they
+ *  priced are locked. Customer, address, notes, dishes and deadline may change. */
+export const LOCKED_ORDER_MESSAGE =
+  "Chefs have already bid on this order. Cancel it and post a new one to change place, timings, guests, budget or rate.";
+export function orderChangeAllowed(order: Order, input: NewOrder, hasActiveBids: boolean) {
+  if (!hasActiveBids) return true;
+  return (
+    order.region === input.region &&
+    order.location === input.location &&
+    Date.parse(order.scheduled_start) === Date.parse(input.scheduled_start) &&
+    Date.parse(order.scheduled_end) === Date.parse(input.scheduled_end) &&
+    order.guests === input.guests &&
+    order.max_budget === input.max_budget &&
+    order.overtime_rate === input.overtime_rate
+  );
+}
+
+/** A datetime-local value (IST) for an ISO timestamp. */
+export const istInputValue = (iso: string) =>
+  new Date(Date.parse(iso) + 5.5 * 3_600_000).toISOString().slice(0, 16);
+/** The ISO timestamp for a datetime-local value entered in IST. */
+export const fromIstInput = (value: string) =>
+  new Date(value + ":00+05:30").toISOString();

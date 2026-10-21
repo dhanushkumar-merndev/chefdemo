@@ -7,13 +7,18 @@ import {
   IndianRupee,
   Plus,
   Download,
+  Pencil,
   Users,
 } from "lucide-react";
 import {
+  ChefType,
   Data,
   Dish,
   Profile,
   Role,
+  ServiceArea,
+  chefTypeLabels,
+  chefTypes,
   Status,
   csvCell,
   dayKey,
@@ -24,8 +29,9 @@ import {
   chefTypeLabel,
 } from "@/lib/domain";
 import * as repo from "@/lib/repository";
-import { servesArea } from "@/lib/service-areas";
+import { servesArea, supportedRegions } from "@/lib/service-areas";
 import { AreaFields, Empty, Field, Heading, Modal, Run } from "./ui";
+import { Pager } from "./orders";
 
 export function exportBookings(data: Data) {
   const rows = [
@@ -264,6 +270,7 @@ export function Staff({
   run: Run;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Profile | null>(null);
   return (
     <>
       <Heading
@@ -304,6 +311,7 @@ export function Staff({
               <th>ROLE</th>
               <th>APPROVAL</th>
               <th>AVAILABILITY</th>
+              <th>DETAILS</th>
             </tr>
           </thead>
           <tbody>
@@ -340,6 +348,18 @@ export function Staff({
                     {p.online ? "Online" : "Offline"}
                   </span>
                 </td>
+                <td data-label="Details">
+                  {p.role === "chef" && (
+                    <button
+                      className="text-button"
+                      aria-label={`Edit ${p.name}`}
+                      disabled={busy}
+                      onClick={() => setEditing(p)}
+                    >
+                      <Pencil size={12} /> Edit
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -362,6 +382,15 @@ export function Staff({
             authorized email.
           </p>
         </article>
+      )}
+      {editing && (
+        <EditChefModal
+          chef={editing}
+          areas={data.service_areas}
+          busy={busy}
+          run={run}
+          onClose={() => setEditing(null)}
+        />
       )}
       {open && (
         <Modal title="Add staff member" onClose={() => setOpen(false)}>
@@ -732,5 +761,249 @@ export function NewBookingModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/** An administrator edits a chef's work details. Phone and email are the
+ *  chef's sign-in methods, so they stay with the chef. */
+export function EditChefModal({
+  chef,
+  areas,
+  busy,
+  run,
+  onClose,
+}: {
+  chef: Pick<Profile, "id" | "name" | "region" | "location" | "chef_type" | "experience" | "cuisine" | "online">;
+  areas: ServiceArea[];
+  busy: boolean;
+  run: Run;
+  onClose: () => void;
+}) {
+  const [region, setRegion] = useState(chef.region);
+  const [location, setLocation] = useState(chef.location);
+  return (
+    <Modal title={`Edit ${chef.name}`} onClose={onClose}>
+      <p className="small-copy muted">
+        Work details used for orders and chef search. The chef&apos;s mobile and email are their sign-in methods and
+        can only be changed by the chef.
+      </p>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const f = new FormData(e.currentTarget);
+          if (
+            await run(
+              () =>
+                repo.adminUpdateChef(chef.id, {
+                  name: String(f.get("name")),
+                  region,
+                  location,
+                  chef_type: String(f.get("chef_type")) as ChefType,
+                  experience: Number(f.get("experience")),
+                  cuisine: String(f.get("cuisine") ?? ""),
+                  online: f.get("online") === "on",
+                }),
+              `${String(f.get("name")).trim()} updated`,
+            )
+          )
+            onClose();
+        }}
+      >
+        <div className="form-grid">
+          <Field label="Full name">
+            <input name="name" required maxLength={120} defaultValue={chef.name} />
+          </Field>
+          <Field label="Chef type">
+            <select name="chef_type" required defaultValue={chef.chef_type ?? ""}>
+              <option value="">Select chef type</option>
+              {chefTypes.map((t) => (
+                <option key={t} value={t}>
+                  {chefTypeLabels[t]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <AreaFields
+            areas={areas}
+            region={region}
+            location={location}
+            onRegion={setRegion}
+            onLocation={setLocation}
+            required
+            regionLabel="Region they work in"
+            locationLabel="Location they work in"
+          />
+          <Field label="Work experience (years)">
+            <input name="experience" type="number" min={0} max={80} required defaultValue={chef.experience} />
+          </Field>
+          <Field label="Primary cuisine">
+            <input name="cuisine" maxLength={120} defaultValue={chef.cuisine} />
+          </Field>
+          <label className="checkbox-label full">
+            <input type="checkbox" name="online" defaultChecked={chef.online} />
+            Available (online) for new orders
+          </label>
+        </div>
+        <div className="save-row">
+          <button className="accept btn" disabled={busy || !location}>
+            Save chef
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+const AREA_PAGE = 50;
+/** Administrators manage each region's localities: add, rename, turn on/off. */
+export function ServiceLocations({ areas, busy, run }: { areas: ServiceArea[]; busy: boolean; run: Run }) {
+  const regions = [...new Set([...supportedRegions, ...areas.map((a) => a.region)])].sort();
+  const [region, setRegion] = useState<string>(regions[0] ?? "");
+  const [query, setQuery] = useState("");
+  const [offset, setOffset] = useState(0);
+  const [renaming, setRenaming] = useState<ServiceArea | null>(null);
+  const term = query.trim().toLowerCase();
+  const inRegion = areas.filter((a) => a.region === region);
+  const builtIn = (a: ServiceArea) => a.name === "All locations" || (a.region === "Delhi" && a.name === "NCR");
+  const list = inRegion
+    .filter((a) => !term || a.name.toLowerCase().includes(term))
+    .sort((a, b) => Number(builtIn(b)) - Number(builtIn(a)) || a.name.localeCompare(b.name));
+  return (
+    <>
+      <Heading
+        title="Service locations"
+        subtitle="The localities chefs and orders can choose in each region. Turning one off hides it from new choices; chefs and bookings already there keep it."
+      />
+      <article className="card form-card">
+        <div className="area-toolbar">
+          <Field label="Region">
+            <select
+              value={region}
+              onChange={(e) => {
+                setRegion(e.target.value);
+                setOffset(0);
+              }}
+            >
+              {regions.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Search locations">
+            <input
+              type="search"
+              value={query}
+              placeholder="Type part of a name"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </Field>
+        </div>
+        <form
+          className="area-add"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const name = String(new FormData(form).get("name") ?? "");
+            if (await run(() => repo.saveServiceArea(region, name, true), `${name.trim()} added to ${region}`)) form.reset();
+          }}
+        >
+          <Field label={`New location in ${region}`}>
+            <input name="name" required maxLength={80} placeholder="e.g. Electronic City" />
+          </Field>
+          <button className="accept btn" disabled={busy}>
+            Add location
+          </button>
+        </form>
+        <p className="muted small-copy">
+          {inRegion.filter((a) => a.active).length} of {inRegion.length} locations active in {region}
+          {term ? ` · ${list.length} match “${query.trim()}”` : ""}
+        </p>
+      </article>
+      <article className="card table-card section-gap">
+        <table>
+          <thead>
+            <tr>
+              <th>LOCATION</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.slice(offset, offset + AREA_PAGE).map((a) => (
+              <tr key={a.id}>
+                <td data-label="Location">
+                  <b>{a.name}</b>
+                  {builtIn(a) && <small>Covers the whole {a.name === "NCR" ? "NCR" : "region"}</small>}
+                </td>
+                <td data-label="Status">
+                  <span className={`status-pill ${a.active ? "completed" : "cancelled"}`}>
+                    {a.active ? "Active" : "Turned off"}
+                  </span>
+                </td>
+                <td data-label="Actions">
+                  <div className="action-row">
+                    <button
+                      className={a.active ? "reject" : "accept"}
+                      disabled={busy}
+                      aria-label={`${a.active ? "Turn off" : "Turn on"} ${a.name}`}
+                      onClick={() =>
+                        run(
+                          () => repo.saveServiceArea(a.region, a.name, !a.active),
+                          `${a.name} turned ${a.active ? "off" : "on"}`,
+                        )
+                      }
+                    >
+                      {a.active ? "Turn off" : "Turn on"}
+                    </button>
+                    {!builtIn(a) && (
+                      <button
+                        className="outline-btn"
+                        disabled={busy}
+                        aria-label={`Rename ${a.name}`}
+                        onClick={() => setRenaming(a)}
+                      >
+                        Rename
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!list.length && <Empty title="No locations match" text="Try another search, or add the location above." />}
+      </article>
+      <Pager offset={offset} total={list.length} limit={AREA_PAGE} onOffset={setOffset} />
+      {renaming && (
+        <Modal title={`Rename ${renaming.name}`} onClose={() => setRenaming(null)}>
+          <p className="small-copy muted">
+            Chefs, open orders and upcoming bookings at {renaming.name} move to the new name. Completed bookings keep
+            the name they were recorded with.
+          </p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const name = String(new FormData(e.currentTarget).get("name") ?? "");
+              if (await run(() => repo.renameServiceArea(renaming.id, name), `Renamed to ${name.trim()}`))
+                setRenaming(null);
+            }}
+          >
+            <Field label="New name">
+              <input name="name" required maxLength={80} defaultValue={renaming.name} />
+            </Field>
+            <div className="save-row">
+              <button className="accept btn" disabled={busy}>
+                Save name
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </>
   );
 }

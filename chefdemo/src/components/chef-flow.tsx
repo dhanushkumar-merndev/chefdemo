@@ -53,11 +53,12 @@ import {
   Dishes,
   Metric,
   NewBookingModal,
+  ServiceLocations,
   Staff,
   exportBookings,
 } from "./admin";
 import ServiceDetail from "./service-detail";
-import { ChefOrdersCard, NewOrderModal, OrdersPage, type OrderFocus } from "./orders";
+import { ChefOrdersCard, OrderFormModal, OrdersPage, type OrderFocus } from "./orders";
 import { ChefSearch } from "./chef-search";
 import { AreaFields, Brand, Empty, Field, Heading, Modal, Run } from "./ui";
 import { LocationAttribution } from "./location-attribution";
@@ -74,7 +75,8 @@ type Page =
   | "staff"
   | "dishes"
   | "orders"
-  | "chefs";
+  | "chefs"
+  | "areas";
 const nav = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "bookings", label: "Bookings", icon: CalendarDays },
@@ -91,6 +93,7 @@ const marketNav = [
 const adminNav = [
   { id: "analytics", label: "Analytics", icon: BarChart3 },
   { id: "staff", label: "Team & roles", icon: Users },
+  { id: "areas", label: "Service locations", icon: MapPin },
 ] as const;
 
 const OTP_LENGTH = 6; // MSG91 widget setting "OTP Length"
@@ -1593,9 +1596,9 @@ export default function ChefFlow({
   const manager = !!user && user.role !== "chef";
   const shownPage =
     manager && ["dashboard", "ratings"].includes(page) ? "analytics" :
-    !manager && ["analytics", "staff", "chefs"].includes(page)
+    !manager && ["analytics", "staff", "chefs", "areas"].includes(page)
       ? "dashboard"
-      : user?.role !== "admin" && page === "staff"
+      : user?.role !== "admin" && (page === "staff" || page === "areas")
         ? "analytics"
         : page;
   const service = data?.bookings.find((b) => b.id === serviceId);
@@ -1750,7 +1753,7 @@ export default function ChefFlow({
             <>
               <div className="nav-label">ADMINISTRATION</div>
               {adminNav
-                .filter((n) => n.id === "staff")
+                .filter((n) => n.id !== "analytics")
                 .map((n) => (
                   <button
                     key={n.id}
@@ -2032,16 +2035,18 @@ export default function ChefFlow({
                       onChange={(e) => setSearchLocation(e.target.value)}
                     >
                       <option value="">All locations</option>
+                      {/* Places that have bookings, not every service area
+                          (thousands of localities). */}
                       {[
                         ...new Set(
-                          data.service_areas
+                          data.bookings
                             .filter(
-                              (a) =>
-                                a.active &&
-                                (!searchRegion || a.region === searchRegion) &&
-                                a.name !== "All locations",
+                              (b) =>
+                                b.location &&
+                                (!searchRegion || b.region === searchRegion) &&
+                                b.location !== "All locations",
                             )
-                            .map((a) => a.name),
+                            .map((b) => b.location),
                         ),
                       ]
                         .sort()
@@ -2264,7 +2269,16 @@ export default function ChefFlow({
                 />
               )}
               {shownPage === "chefs" && manager && (
-                <ChefSearch areas={data.service_areas} />
+                <ChefSearch
+                  areas={data.service_areas}
+                  canEdit={user.role === "admin"}
+                  busy={busy}
+                  run={run}
+                  version={version}
+                />
+              )}
+              {shownPage === "areas" && user.role === "admin" && (
+                <ServiceLocations areas={data.service_areas} busy={busy} run={run} />
               )}
               {shownPage === "staff" && user.role === "admin" && (
                 <Staff data={data} userId={user.id} busy={busy} run={run} />
@@ -2309,7 +2323,7 @@ export default function ChefFlow({
         <Modal title={user.role === "admin" ? "Administration" : "Your workspace"} onClose={back}>
           {!manager && <div className="menu-availability">{availabilityToggle}</div>}
           <div className="all-pages">
-            {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"orders",label:"Orders & bidding"},{id:"chefs",label:"Find chefs"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"orders",label:"Orders & bids"},{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}
+            {(manager ? [{id:"analytics",label:"Business overview"},{id:"bookings",label:"Manage bookings"},{id:"orders",label:"Orders & bidding"},{id:"chefs",label:"Find chefs"},{id:"earnings",label:"Service revenue"},{id:"dishes",label:"Dish library"},...(user.role === "admin" ? [{id:"staff",label:"Team & approvals"},{id:"areas",label:"Service locations"}] : []),{id:"calendar",label:"Calendar"},{id:"profile",label:"Account profile"},{id:"support",label:"Support tickets"}] : [...nav,{id:"orders",label:"Orders & bids"},{id:"calendar",label:"Calendar"}]).map(n => <button className="nav-item" key={n.id} onClick={() => go(n.id as Page)}>{n.label}</button>)}
           </div>
           <div className="save-row">
             <button
@@ -2326,7 +2340,7 @@ export default function ChefFlow({
         </Modal>
       )}
       {newOrder && (
-        <NewOrderModal
+        <OrderFormModal
           data={data}
           busy={busy}
           run={run}
